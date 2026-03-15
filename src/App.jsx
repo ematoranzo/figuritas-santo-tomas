@@ -13,23 +13,23 @@ import AdminAlbumes from './pages/admin/AdminAlbumes'
 import AdminGrados from './pages/admin/AdminGrados'
 
 function RutaProtegida({ children }) {
-  const { user, perfil, loading } = useAuth()
+  const { user, familia, loading } = useAuth()
   if (loading) return <div className="loading">Cargando...</div>
   if (!user) return <Navigate to="/login" />
-  if (perfil?.estado === 'pendiente') return (
+  if (familia?.estado === 'pendiente') return (
     <div className="pendiente">
       <h2>⏳ Solicitud pendiente</h2>
       <p>Tu registro está siendo revisado por la administradora. Te avisaremos por email cuando esté aprobado.</p>
     </div>
   )
-  if (perfil?.estado !== 'aprobado') return <Navigate to="/login" />
+  if (familia?.estado !== 'aprobado') return <Navigate to="/login" />
   return children
 }
 
 function RutaAdmin({ children }) {
-  const { user, perfil, loading } = useAuth()
+  const { user, familia, loading } = useAuth()
   if (loading) return <div className="loading">Cargando...</div>
-  if (!user || perfil?.rol !== 'admin') return <Navigate to="/" />
+  if (!user || familia?.rol !== 'admin') return <Navigate to="/" />
   return children
 }
 

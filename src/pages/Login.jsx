@@ -1,38 +1,40 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import toast from 'react-hot-toast';
+import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import toast from 'react-hot-toast'
 
 export default function Login() {
-  const { login } = useAuth();
-  const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [pin, setPin] = useState('');
-  const [cargando, setCargando] = useState(false);
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [pin, setPin] = useState('')
+  const [cargando, setCargando] = useState(false)
 
   async function handleSubmit(e) {
-    e.preventDefault();
+    e.preventDefault()
     if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-      toast.error('El PIN debe ser exactamente 4 números');
-      return;
+      toast.error('El PIN debe ser exactamente 4 números')
+      return
     }
-    setCargando(true);
-    const { error } = await login(email, pin);
-    setCargando(false);
+    setCargando(true)
+    const { error } = await login(email, pin)
     if (error) {
       toast.error('Email o PIN incorrecto')
+      setCargando(false)
+      return
+    }
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data } = await supabase
+      .from('familia')
+      .select('rol')
+      .eq('id', user.id)
+      .single()
+    setCargando(false)
+    if (data?.rol === 'admin') {
+      navigate('/admin')
     } else {
-      const { data } = await supabase
-        .from('usuario')
-        .select('rol')
-        .eq('id', (await supabase.auth.getUser()).data.user.id)
-        .single()
-      if (data?.rol === 'admin') {
-        navigate('/admin')
-      } else {
-        navigate('/dashboard')
-      }
+      navigate('/dashboard')
     }
   }
 
@@ -46,7 +48,7 @@ export default function Login() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               placeholder="ejemplo@email.com"
               required
             />
@@ -58,19 +60,13 @@ export default function Login() {
               inputMode="numeric"
               maxLength={4}
               value={pin}
-              onChange={(e) =>
-                setPin(e.target.value.replace(/\D/g, '').slice(0, 4))
-              }
+              onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
               placeholder="••••"
               className="input-pin"
               required
             />
           </div>
-          <button
-            type="submit"
-            className="btn-primary btn-block"
-            disabled={cargando}
-          >
+          <button type="submit" className="btn-primary btn-block" disabled={cargando}>
             {cargando ? 'Ingresando...' : 'Ingresar'}
           </button>
         </form>
@@ -79,5 +75,5 @@ export default function Login() {
         </p>
       </div>
     </div>
-  );
+  )
 }

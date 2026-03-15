@@ -157,3 +157,28 @@ a:hover { text-decoration: underline; }
   .admin-wrapper { flex-direction: column; }
   .admin-page { padding: 16px; }
 }
+/* ── Registro alumnos ── */
+.alumno-card { background: #f4f9f5; border: 2px solid #d4e6d9; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.alumno-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.alumno-num { font-weight: 700; color: #1a4a2e; font-size: .95rem; }
+.btn-quitar { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: .85rem; font-weight: 600; }
+.btn-quitar:hover { text-decoration: underline; }
+.btn-agregar-alumno { width: 100%; padding: 12px; border: 2px dashed #1a4a2e; border-radius: 8px; background: none; color: #1a4a2e; font-size: .95rem; font-weight: 600; cursor: pointer; margin-bottom: 16px; transition: all .2s; }
+.btn-agregar-alumno:hover { background: #e8f3eb; }
+
+/* ── Dashboard alumnos ── */
+.alumnos-dashboard { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+.alumno-dashboard-card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.08); border-top: 4px solid #1a4a2e; }
+.alumno-dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.alumno-dashboard-header h2 { color: #1a4a2e; font-size: 1.2rem; margin-bottom: 4px; }
+.alumno-dashboard-header p { color: #888; font-size: .85rem; }
+.alumno-icon { font-size: 2rem; }
+.dashboard-empty-small { text-align: center; padding: 20px; color: #aaa; font-size: .9rem; background: #f4f9f5; border-radius: 8px; }
+/* ── Admin familias ── */
+.familias-lista { display: flex; flex-direction: column; gap: 16px; }
+.familia-admin-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.familia-admin-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.familia-admin-header h3 { color: #1a4a2e; font-size: 1.05rem; margin-bottom: 4px; }
+.familia-admin-header p { color: #888; font-size: .85rem; }
+.familia-alumnos { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.alumno-chip { background: #e8f3eb; color: #1a4a2e; padding: 4px 12px; border-radius: 20px; font-size: .82rem; font-weight: 600; }

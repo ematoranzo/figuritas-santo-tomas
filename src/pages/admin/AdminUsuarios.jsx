@@ -4,53 +4,56 @@ import toast from 'react-hot-toast'
 
 const ESTADOS = ['todos', 'pendiente', 'aprobado', 'rechazado', 'inactivo', 'baja']
 const COLORES = {
-  pendiente: '#f39c12', aprobado: '#27ae60',
+  pendiente: '#c9a227', aprobado: '#27ae60',
   rechazado: '#e74c3c', inactivo: '#95a5a6', baja: '#7f8c8d'
 }
 
 export default function AdminUsuarios() {
-  const [usuarios, setUsuarios] = useState([])
+  const [familias, setFamilias] = useState([])
   const [filtro, setFiltro] = useState('pendiente')
   const [busqueda, setBusqueda] = useState('')
   const [cargando, setCargando] = useState(false)
 
-  useEffect(() => { cargarUsuarios() }, [filtro])
+  useEffect(() => { cargarFamilias() }, [filtro])
 
-  async function cargarUsuarios() {
+  async function cargarFamilias() {
     setCargando(true)
-    let q = supabase.from('usuario')
-      .select('*, grado_sala(descripcion, nivel)')
+    let q = supabase.from('familia')
+      .select('*, alumnos:alumno(nombre, apellido, grado_sala(descripcion))')
       .order('created_at', { ascending: false })
     if (filtro !== 'todos') q = q.eq('estado', filtro)
     const { data } = await q
-    setUsuarios(data || [])
+    setFamilias(data || [])
     setCargando(false)
   }
 
   async function cambiarEstado(id, nuevoEstado) {
-    const { error } = await supabase.from('usuario')
+    const { error } = await supabase.from('familia')
       .update({ estado: nuevoEstado, updated_at: new Date().toISOString() })
       .eq('id', id)
     if (error) {
       toast.error('Error al actualizar')
     } else {
-      toast.success(`Usuario ${nuevoEstado}`)
-      cargarUsuarios()
+      toast.success(`Familia ${nuevoEstado}`)
+      cargarFamilias()
     }
   }
 
-  const filtrados = usuarios.filter(u => {
+  const filtradas = familias.filter(f => {
     const texto = busqueda.toLowerCase()
     return !texto ||
-      u.nombre_alumno?.toLowerCase().includes(texto) ||
-      u.apellido_alumno?.toLowerCase().includes(texto) ||
-      u.email_adulto?.toLowerCase().includes(texto) ||
-      u.grado_sala?.descripcion?.toLowerCase().includes(texto)
+      f.nombre_adulto?.toLowerCase().includes(texto) ||
+      f.apellido_adulto?.toLowerCase().includes(texto) ||
+      f.email_adulto?.toLowerCase().includes(texto) ||
+      f.alumnos?.some(a =>
+        a.nombre?.toLowerCase().includes(texto) ||
+        a.apellido?.toLowerCase().includes(texto)
+      )
   })
 
   return (
     <div className="admin-page">
-      <h1 className="admin-title">Usuarios</h1>
+      <h1 className="admin-title">Familias</h1>
 
       <div className="admin-toolbar">
         <div className="filtros-estado">
@@ -63,7 +66,7 @@ export default function AdminUsuarios() {
         </div>
         <input
           className="admin-search"
-          placeholder="🔍 Buscar por nombre, email o grado..."
+          placeholder="🔍 Buscar por nombre, email o alumno..."
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
         />
@@ -71,52 +74,48 @@ export default function AdminUsuarios() {
 
       {cargando ? (
         <div className="admin-loading">Cargando...</div>
-      ) : filtrados.length === 0 ? (
-        <div className="admin-empty">No hay usuarios en este estado.</div>
+      ) : filtradas.length === 0 ? (
+        <div className="admin-empty">No hay familias en este estado.</div>
       ) : (
-        <div className="tabla-wrapper">
-          <table className="admin-tabla">
-            <thead>
-              <tr>
-                <th>Alumno</th>
-                <th>Adulto responsable</th>
-                <th>Email</th>
-                <th>Grado / Sala</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtrados.map(u => (
-                <tr key={u.id}>
-                  <td><strong>{u.apellido_alumno}, {u.nombre_alumno}</strong></td>
-                  <td>{u.nombre_adulto} {u.apellido_adulto}</td>
-                  <td>{u.email_adulto}</td>
-                  <td>{u.grado_sala?.descripcion}</td>
-                  <td>
-                    <span className="estado-badge" style={{ background: COLORES[u.estado] }}>
-                      {u.estado}
-                    </span>
-                  </td>
-                  <td className="acciones">
-                    {u.estado === 'pendiente' && <>
-                      <button onClick={() => cambiarEstado(u.id, 'aprobado')} className="btn-accion btn-ok">✓ Aprobar</button>
-                      <button onClick={() => cambiarEstado(u.id, 'rechazado')} className="btn-accion btn-danger">✗ Rechazar</button>
-                    </>}
-                    {u.estado === 'aprobado' && u.rol !== 'admin' &&
-                      <button onClick={() => cambiarEstado(u.id, 'inactivo')} className="btn-accion btn-warn">⏸ Inactivar</button>
-                    }
-                    {u.estado === 'inactivo' &&
-                      <button onClick={() => cambiarEstado(u.id, 'aprobado')} className="btn-accion btn-ok">▶ Reactivar</button>
-                    }
-                    {u.estado === 'rechazado' &&
-                      <button onClick={() => cambiarEstado(u.id, 'aprobado')} className="btn-accion btn-ok">✓ Aprobar</button>
-                    }
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="familias-lista">
+          {filtradas.map(f => (
+            <div key={f.id} className="familia-admin-card">
+              <div className="familia-admin-header">
+                <div>
+                  <h3>{f.apellido_adulto}, {f.nombre_adulto}</h3>
+                  <p>{f.email_adulto}</p>
+                </div>
+                <span className="estado-badge" style={{ background: COLORES[f.estado] }}>
+                  {f.estado}
+                </span>
+              </div>
+
+              <div className="familia-alumnos">
+                {f.alumnos?.map((a, i) => (
+                  <span key={i} className="alumno-chip">
+                    🎒 {a.nombre} {a.apellido}
+                    {a.grado_sala && ` · ${a.grado_sala.descripcion}`}
+                  </span>
+                ))}
+              </div>
+
+              <div className="acciones">
+                {f.estado === 'pendiente' && <>
+                  <button onClick={() => cambiarEstado(f.id, 'aprobado')} className="btn-accion btn-ok">✓ Aprobar</button>
+                  <button onClick={() => cambiarEstado(f.id, 'rechazado')} className="btn-accion btn-danger">✗ Rechazar</button>
+                </>}
+                {f.estado === 'aprobado' && f.rol !== 'admin' &&
+                  <button onClick={() => cambiarEstado(f.id, 'inactivo')} className="btn-accion btn-warn">⏸ Inactivar</button>
+                }
+                {f.estado === 'inactivo' &&
+                  <button onClick={() => cambiarEstado(f.id, 'aprobado')} className="btn-accion btn-ok">▶ Reactivar</button>
+                }
+                {f.estado === 'rechazado' &&
+                  <button onClick={() => cambiarEstado(f.id, 'aprobado')} className="btn-accion btn-ok">✓ Aprobar</button>
+                }
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
