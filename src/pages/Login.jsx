@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { supabase } from '../lib/supabase'
 
 export default function Login() {
   const { login } = useAuth();
@@ -20,9 +21,18 @@ export default function Login() {
     const { error } = await login(email, pin);
     setCargando(false);
     if (error) {
-      toast.error('Email o PIN incorrecto');
+      toast.error('Email o PIN incorrecto')
     } else {
-      navigate('/dashboard');
+      const { data } = await supabase
+        .from('usuario')
+        .select('rol')
+        .eq('id', (await supabase.auth.getUser()).data.user.id)
+        .single()
+      if (data?.rol === 'admin') {
+        navigate('/admin')
+      } else {
+        navigate('/dashboard')
+      }
     }
   }
 

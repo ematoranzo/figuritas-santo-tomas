@@ -14,9 +14,9 @@ export default function Layout() {
     <div className="app">
       <header className="header">
         <div className="header-inner">
-          <Link to="/" className="logo">
-            🎴 FigurItas Santo Tomás
-          </Link>
+        <Link to="/" className="logo">
+  <img src="/logo.png" alt="FigurItas Santo Tomás" className="logo-img" />
+</Link>
           <nav className="nav">
             {!user && (
               <>

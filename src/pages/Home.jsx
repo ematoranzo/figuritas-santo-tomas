@@ -30,7 +30,8 @@ export default function Home() {
     <div className="home">
       <section className="hero">
         <div className="hero-content">
-          <h1>🎴 {config.nombre_sitio || 'FigurItas Santo Tomás'}</h1>
+        <img src="/logo.png" alt="FigurItas Santo Tomás" className="hero-logo" />
+<h1>{config.nombre_sitio || 'FigurItas Santo Tomás'}</h1>
           <p>
             {config.mensaje_bienvenida ||
               '¡Bienvenidos a la plataforma de intercambio de figuritas!'}
