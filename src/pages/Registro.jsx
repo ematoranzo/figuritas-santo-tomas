@@ -25,7 +25,7 @@ export default function Registro() {
 
   function handleChange(e) {
     const val = e.target.name === 'pin' || e.target.name === 'pin2'
-      ? e.target.value.replace(/\D/g, '').slice(0, 4)
+      ? e.target.value.replace(/\D/g, '').slice(0, 6)
       : e.target.value
     setForm(f => ({ ...f, [e.target.name]: val }))
   }
@@ -45,7 +45,7 @@ export default function Registro() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (form.pin.length !== 4) { toast.error('El PIN debe tener 4 números'); return }
+    if (form.pin.length !== 6) { toast.error('El PIN debe tener 6 números'); return }
     if (form.pin !== form.pin2) { toast.error('Los PINs no coinciden'); return }
     for (const a of alumnos) {
       if (!a.nombre.trim() || !a.apellido.trim()) { toast.error('Completá nombre y apellido de todos los alumnos'); return }
@@ -54,14 +54,12 @@ export default function Registro() {
 
     setCargando(true)
     try {
-      // Crear usuario en Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email_adulto,
         password: form.pin,
       })
       if (authError) throw authError
 
-      // Crear registro de familia
       const { error: familiaError } = await supabase.from('familia').insert({
         id: authData.user.id,
         nombre_adulto: form.nombre_adulto.trim(),
@@ -72,7 +70,6 @@ export default function Registro() {
       })
       if (familiaError) throw familiaError
 
-      // Crear cada alumno
       const alumnosData = alumnos.map(a => ({
         id_familia: authData.user.id,
         nombre: a.nombre.trim(),
@@ -101,7 +98,6 @@ export default function Registro() {
         <h2>📝 Registrarse</h2>
         <p className="form-subtitle">Completá los datos para unirte a la comunidad de intercambio.</p>
         <form onSubmit={handleSubmit}>
-
           <h3 className="form-section">Datos del adulto responsable</h3>
           <div className="campo-grupo">
             <div className="campo">
@@ -122,12 +118,12 @@ export default function Registro() {
           <p className="form-hint">Este PIN lo usarán todos los hijos de esta familia para ingresar.</p>
           <div className="campo-grupo">
             <div className="campo">
-              <label>PIN (4 números)</label>
-              <input name="pin" type="password" inputMode="numeric" maxLength={4} value={form.pin} onChange={handleChange} required placeholder="••••" className="input-pin" />
+              <label>PIN (6 números)</label>
+              <input name="pin" type="password" inputMode="numeric" maxLength={6} value={form.pin} onChange={handleChange} required placeholder="••••••" className="input-pin" />
             </div>
             <div className="campo">
               <label>Repetir PIN</label>
-              <input name="pin2" type="password" inputMode="numeric" maxLength={4} value={form.pin2} onChange={handleChange} required placeholder="••••" className="input-pin" />
+              <input name="pin2" type="password" inputMode="numeric" maxLength={6} value={form.pin2} onChange={handleChange} required placeholder="••••••" className="input-pin" />
             </div>
           </div>
 

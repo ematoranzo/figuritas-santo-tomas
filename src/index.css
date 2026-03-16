@@ -57,7 +57,7 @@ a:hover { text-decoration: underline; }
 .campo input, .campo select { padding: 10px 14px; border: 2px solid #dde; border-radius: 8px; font-size: 1rem; transition: border-color .2s; }
 .campo input:focus, .campo select:focus { outline: none; border-color: #1a4a2e; }
 .campo-grupo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.input-pin { font-size: 1.5rem; letter-spacing: 8px; text-align: center; max-width: 140px; }
+.input-pin { font-size: 1.5rem; letter-spacing: 6px; text-align: center; max-width: 200px; }
 .form-footer { text-align: center; margin-top: 20px; color: #666; font-size: .9rem; }
 
 .dashboard-header { margin-bottom: 32px; }
@@ -157,6 +157,7 @@ a:hover { text-decoration: underline; }
   .admin-wrapper { flex-direction: column; }
   .admin-page { padding: 16px; }
 }
+
 /* ── Registro alumnos ── */
 .alumno-card { background: #f4f9f5; border: 2px solid #d4e6d9; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
 .alumno-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -166,7 +167,7 @@ a:hover { text-decoration: underline; }
 .btn-agregar-alumno { width: 100%; padding: 12px; border: 2px dashed #1a4a2e; border-radius: 8px; background: none; color: #1a4a2e; font-size: .95rem; font-weight: 600; cursor: pointer; margin-bottom: 16px; transition: all .2s; }
 .btn-agregar-alumno:hover { background: #e8f3eb; }
 
-/* ── Dashboard alumnos ── */
+/* ── Dashboard álbumes ── */
 .alumnos-dashboard { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
 .alumno-dashboard-card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.08); border-top: 4px solid #1a4a2e; }
 .alumno-dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
@@ -174,6 +175,16 @@ a:hover { text-decoration: underline; }
 .alumno-dashboard-header p { color: #888; font-size: .85rem; }
 .alumno-icon { font-size: 2rem; }
 .dashboard-empty-small { text-align: center; padding: 20px; color: #aaa; font-size: .9rem; background: #f4f9f5; border-radius: 8px; }
+.albumes-alumno { display: flex; flex-direction: column; gap: 10px; }
+.album-card-link { text-decoration: none; }
+.album-card { display: flex; align-items: center; gap: 12px; background: #f4f9f5; border-radius: 10px; padding: 12px; border: 2px solid #d4e6d9; transition: all .2s; }
+.album-card:hover { border-color: #1a4a2e; background: #e8f3eb; }
+.album-portada { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; }
+.album-portada-placeholder { width: 48px; height: 48px; border-radius: 8px; background: #1a4a2e; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+.album-card-info h3 { color: #1a4a2e; font-size: .95rem; margin-bottom: 2px; }
+.album-card-info p { color: #888; font-size: .8rem; }
+.album-card-arrow { margin-left: auto; color: #1a4a2e; font-size: 1.2rem; font-weight: 700; }
+
 /* ── Admin familias ── */
 .familias-lista { display: flex; flex-direction: column; gap: 16px; }
 .familia-admin-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
@@ -182,3 +193,50 @@ a:hover { text-decoration: underline; }
 .familia-admin-header p { color: #888; font-size: .85rem; }
 .familia-alumnos { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .alumno-chip { background: #e8f3eb; color: #1a4a2e; padding: 4px 12px; border-radius: 20px; font-size: .82rem; font-weight: 600; }
+
+/* ── Album detalle ── */
+.album-detalle { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
+.album-detalle-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+.album-detalle-header h1 { color: #1a4a2e; font-size: 1.6rem; margin-bottom: 4px; }
+.album-detalle-header p { color: #888; font-size: .9rem; }
+.btn-volver { background: #e8f3eb; border: none; color: #1a4a2e; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+.btn-volver:hover { background: #1a4a2e; color: white; }
+.album-resumen { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.resumen-item { background: white; border-radius: 10px; padding: 16px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.resumen-num { display: block; font-size: 1.8rem; font-weight: 700; color: #1a4a2e; }
+.resumen-label { font-size: .8rem; color: #888; }
+.faltante-color .resumen-num { color: #e67e22; }
+.repetida-color .resumen-num { color: #2980b9; }
+.modo-selector { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.modo-selector span { font-weight: 600; color: #1a4a2e; }
+.modo-btn { padding: 8px 20px; border: 2px solid #dde; border-radius: 20px; background: white; cursor: pointer; font-size: .9rem; font-weight: 600; }
+.active-faltante { border-color: #e67e22; background: #fef3e8; color: #e67e22; }
+.active-repetida { border-color: #2980b9; background: #eaf3fb; color: #2980b9; }
+
+/* ── Panel visual ── */
+.panel-visual { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.rangos-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.rango-tab { padding: 6px 14px; border: 2px solid #dde; border-radius: 20px; background: white; cursor: pointer; font-size: .85rem; }
+.rango-tab.active { border-color: #1a4a2e; background: #1a4a2e; color: white; }
+.grilla-figuritas { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-bottom: 16px; }
+.figura-btn { aspect-ratio: 1; border: 2px solid #dde; border-radius: 6px; background: white; cursor: pointer; font-size: .85rem; font-weight: 600; color: #555; transition: all .15s; }
+.figura-btn:hover { border-color: #1a4a2e; color: #1a4a2e; }
+.figura-btn.faltante { background: #fef3e8; border-color: #e67e22; color: #e67e22; }
+.figura-btn.repetida { background: #eaf3fb; border-color: #2980b9; color: #2980b9; }
+.panel-leyenda { display: flex; gap: 16px; font-size: .82rem; }
+.faltante-leyenda { color: #e67e22; font-weight: 600; }
+.repetida-leyenda { color: #2980b9; font-weight: 600; }
+.neutral-leyenda { color: #aaa; }
+
+/* ── Carga manual ── */
+.carga-manual { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.carga-manual label { font-weight: 600; color: #1a4a2e; display: block; margin-bottom: 10px; }
+.carga-manual-row { display: flex; gap: 10px; }
+.carga-manual-input { flex: 1; padding: 10px 14px; border: 2px solid #dde; border-radius: 8px; font-size: 1rem; }
+.carga-manual-input:focus { outline: none; border-color: #1a4a2e; }
+.album-acciones { text-align: center; padding: 20px 0; }
+
+@media (max-width: 600px) {
+  .grilla-figuritas { grid-template-columns: repeat(7, 1fr); }
+  .album-resumen { grid-template-columns: repeat(2, 1fr); }
+}

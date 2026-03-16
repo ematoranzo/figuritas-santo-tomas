@@ -13,8 +13,8 @@ export default function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-      toast.error('El PIN debe ser exactamente 4 números')
+    if (pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+      toast.error('El PIN debe ser exactamente 6 números')
       return
     }
     setCargando(true)
@@ -54,14 +54,14 @@ export default function Login() {
             />
           </div>
           <div className="campo">
-            <label>PIN (4 números)</label>
+            <label>PIN (6 números)</label>
             <input
               type="password"
               inputMode="numeric"
-              maxLength={4}
+              maxLength={6}
               value={pin}
-              onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              placeholder="••••"
+              onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="••••••"
               className="input-pin"
               required
             />

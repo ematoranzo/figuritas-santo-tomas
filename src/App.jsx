@@ -6,6 +6,7 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Registro from './pages/Registro'
 import Dashboard from './pages/Dashboard'
+import AlbumDetalle from './pages/figuritas/AlbumDetalle'
 import AdminLayout from './pages/admin/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminUsuarios from './pages/admin/AdminUsuarios'
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="login" element={<Login />} />
         <Route path="registro" element={<Registro />} />
         <Route path="dashboard" element={<RutaProtegida><Dashboard /></RutaProtegida>} />
+        <Route path="album/:albumId/alumno/:alumnoId" element={<RutaProtegida><AlbumDetalle /></RutaProtegida>} />
       </Route>
       <Route path="/admin" element={<RutaAdmin><AdminLayout /></RutaAdmin>}>
         <Route index element={<AdminDashboard />} />
