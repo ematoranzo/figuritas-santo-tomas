@@ -27,7 +27,6 @@ export default function Coincidencias() {
     setAlbum(albumData)
     setAlumno(alumnoData)
 
-    // Verificar que tenga faltantes
     const { data: misFaltantes } = await supabase
       .from('figurita_alumno')
       .select('numero_figurita')
@@ -43,7 +42,6 @@ export default function Coincidencias() {
       return
     }
 
-    // Buscar coincidencias usando función segura
     const { data: repetidas, error } = await supabase
       .rpc('buscar_coincidencias', {
         p_alumno_id: alumnoId,
@@ -61,13 +59,11 @@ export default function Coincidencias() {
       return
     }
 
-    // Obtener IDs únicos de alumnos
     const idsAlumnos = [...new Set(repetidas.map(r => r.id_alumno))]
 
-    // Cargar datos de esos alumnos con sus familias
     const { data: alumnosData } = await supabase
       .from('alumno')
-      .select('id, nombre, apellido, grado_sala(descripcion), id_familia, familia(id, nombre_adulto, apellido_adulto, email_adulto, estado)')
+      .select('id, nombre, apellido, grado_sala(descripcion), id_familia')
       .in('id', idsAlumnos)
 
     console.log('Alumnos data:', alumnosData)
@@ -78,10 +74,30 @@ export default function Coincidencias() {
       return
     }
 
-    // Filtrar solo familias aprobadas
-    const alumnosAprobados = alumnosData.filter(a => a.familia?.estado === 'aprobado')
+    const idsFamilias = [...new Set(alumnosData.map(a => a.id_familia))]
+    console.log('IDs familias buscadas:', idsFamilias)
 
-    // Figuritas que YO tengo repetidas
+    const { data: familiasData } = await supabase
+      .from('familia')
+      .select('id, nombre_adulto, apellido_adulto, email_adulto, estado')
+      .in('id', idsFamilias)
+      .eq('estado', 'aprobado')
+
+    console.log('Familias data:', familiasData)
+
+    if (!familiasData || familiasData.length === 0) {
+      setCargando(false)
+      setResultados([])
+      return
+    }
+
+    const alumnosConFamilia = alumnosData.map(a => ({
+      ...a,
+      familia: familiasData.find(f => f.id === a.id_familia) || null
+    }))
+
+    const alumnosAprobados = alumnosConFamilia.filter(a => a.familia !== null)
+
     const { data: misRepetidas } = await supabase
       .from('figurita_alumno')
       .select('numero_figurita')
@@ -91,7 +107,6 @@ export default function Coincidencias() {
 
     const misRepetidasNums = (misRepetidas || []).map(f => f.numero_figurita)
 
-    // Armar resultados
     const resultadosFinales = []
 
     for (const alumnoOtro of alumnosAprobados) {
@@ -99,13 +114,11 @@ export default function Coincidencias() {
         .filter(r => r.id_alumno === alumnoOtro.id)
         .map(r => r.numero_figurita)
 
-      // Figuritas faltantes del otro alumno
       const { data: susFaltantes } = await supabase
-        .from('figurita_alumno')
-        .select('numero_figurita')
-        .eq('id_alumno', alumnoOtro.id)
-        .eq('id_album', albumId)
-        .eq('estado', 'faltante')
+        .rpc('buscar_faltantes_alumno', {
+          p_alumno_id: alumnoOtro.id,
+          p_album_id: albumId
+        })
 
       const susFaltantesNums = (susFaltantes || []).map(f => f.numero_figurita)
       const figuritasQueTeFantanYYoTengo = susFaltantesNums.filter(n => misRepetidasNums.includes(n))
@@ -121,7 +134,6 @@ export default function Coincidencias() {
     resultadosFinales.sort((a, b) => b.totalCoincidencias - a.totalCoincidencias)
     setResultados(resultadosFinales)
 
-    // Contar emails enviados hoy
     const hoy = new Date()
     hoy.setHours(0, 0, 0, 0)
     const { count } = await supabase
