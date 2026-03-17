@@ -156,6 +156,12 @@ export default function AlbumDetalle() {
       />
 
       <div className="album-acciones">
+        <button
+          onClick={() => navigate(`/coincidencias/${albumId}/alumno/${alumnoId}`)}
+          className="btn-secondary btn-grande"
+        >
+          🔍 Buscar coincidencias
+        </button>
         <button onClick={guardar} className="btn-primary btn-grande" disabled={guardando || !tieneCambios}>
           {guardando ? 'Guardando...' : tieneCambios ? `💾 Guardar cambios (${Object.keys(cambiosPendientes).length})` : '✓ Todo guardado'}
         </button>

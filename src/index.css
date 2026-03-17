@@ -240,3 +240,34 @@ a:hover { text-decoration: underline; }
   .grilla-figuritas { grid-template-columns: repeat(7, 1fr); }
   .album-resumen { grid-template-columns: repeat(2, 1fr); }
 }
+/* ── Coincidencias ── */
+.coincidencias-page { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
+.coincidencias-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.coincidencias-header h1 { color: #1a4a2e; font-size: 1.6rem; margin-bottom: 4px; }
+.coincidencias-header p { color: #888; font-size: .9rem; }
+.emails-contador { margin-left: auto; background: white; border-radius: 8px; padding: 8px 16px; font-size: .85rem; font-weight: 600; color: #1a4a2e; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.limite-alcanzado { color: #e74c3c; }
+.coincidencias-intro { color: #555; margin-bottom: 20px; }
+.coincidencias-empty { text-align: center; padding: 60px 20px; background: white; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.resultados-lista { display: flex; flex-direction: column; gap: 16px; }
+.resultado-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.08); border-left: 4px solid #1a4a2e; }
+.resultado-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.resultado-posicion { width: 36px; height: 36px; background: #1a4a2e; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .9rem; flex-shrink: 0; }
+.resultado-info h3 { color: #1a4a2e; font-size: 1.05rem; margin-bottom: 2px; }
+.resultado-info p { color: #888; font-size: .85rem; }
+.resultado-total { margin-left: auto; text-align: center; }
+.total-num { display: block; font-size: 1.8rem; font-weight: 700; color: #1a4a2e; }
+.total-label { font-size: .75rem; color: #888; }
+.resultado-detalle { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.resultado-bloque { padding: 12px 16px; border-radius: 8px; }
+.faltante-bloque { background: #fef3e8; border-left: 3px solid #e67e22; }
+.repetida-bloque { background: #eaf3fb; border-left: 3px solid #2980b9; }
+.resultado-bloque-titulo { font-size: .85rem; font-weight: 600; margin-bottom: 8px; color: #444; }
+.figuritas-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-faltante { background: #e67e22; color: white; padding: 3px 10px; border-radius: 12px; font-size: .82rem; font-weight: 600; }
+.chip-repetida { background: #2980b9; color: white; padding: 3px 10px; border-radius: 12px; font-size: .82rem; font-weight: 600; }
+.resultado-acciones { text-align: right; }
+.btn-enviar-email { background: #1a4a2e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: .9rem; font-weight: 600; }
+.btn-enviar-email:hover { background: #133d24; }
+.btn-disabled { background: #ccc; cursor: not-allowed; }
+.btn-disabled:hover { background: #ccc; }
