@@ -27,7 +27,7 @@ export default function Coincidencias() {
     setAlbum(albumData)
     setAlumno(alumnoData)
 
-    // Figuritas faltantes del alumno actual
+    // Verificar que tenga faltantes
     const { data: misFaltantes } = await supabase
       .from('figurita_alumno')
       .select('numero_figurita')
@@ -35,83 +35,89 @@ export default function Coincidencias() {
       .eq('id_album', albumId)
       .eq('estado', 'faltante')
 
+    console.log('Mis faltantes:', misFaltantes)
+
     if (!misFaltantes || misFaltantes.length === 0) {
       setCargando(false)
       setResultados([])
       return
     }
 
-    const numerosFaltantes = misFaltantes.map(f => f.numero_figurita)
+    // Buscar coincidencias usando función segura
+    const { data: repetidas, error } = await supabase
+      .rpc('buscar_coincidencias', {
+        p_alumno_id: alumnoId,
+        p_album_id: albumId
+      })
 
-    // Buscar otros alumnos que tengan esas figuritas como repetidas
-    const { data: coincidencias } = await supabase
-      .from('figurita_alumno')
-      .select(`
-        numero_figurita,
-        id_alumno,
-        alumno!inner(
-          id, nombre, apellido,
-          grado_sala(descripcion),
-          familia!inner(id, nombre_adulto, apellido_adulto, email_adulto, estado)
-        )
-      `)
-      .eq('id_album', albumId)
-      .eq('estado', 'repetida')
-      .in('numero_figurita', numerosFaltantes)
-      .neq('id_alumno', alumnoId)
+    console.log('alumnoId:', alumnoId)
+    console.log('albumId:', albumId)
+    console.log('RPC repetidas:', repetidas)
+    console.log('RPC error:', error)
 
-    if (!coincidencias || coincidencias.length === 0) {
+    if (error || !repetidas || repetidas.length === 0) {
       setCargando(false)
       setResultados([])
       return
     }
 
-    // Agrupar por alumno
-    const porAlumno = {}
-    for (const c of coincidencias) {
-      const a = c.alumno
-      if (!a || a.familia?.estado !== 'aprobado') continue
-      const id = a.id
-      if (!porAlumno[id]) {
-        porAlumno[id] = {
-          alumno: a,
-          figuritasQueTiene: [],
-        }
-      }
-      porAlumno[id].figuritasQueTiene.push(c.numero_figurita)
+    // Obtener IDs únicos de alumnos
+    const idsAlumnos = [...new Set(repetidas.map(r => r.id_alumno))]
+
+    // Cargar datos de esos alumnos con sus familias
+    const { data: alumnosData } = await supabase
+      .from('alumno')
+      .select('id, nombre, apellido, grado_sala(descripcion), id_familia, familia(id, nombre_adulto, apellido_adulto, email_adulto, estado)')
+      .in('id', idsAlumnos)
+
+    console.log('Alumnos data:', alumnosData)
+
+    if (!alumnosData) {
+      setCargando(false)
+      setResultados([])
+      return
     }
 
-    // Para cada resultado, buscar también las figuritas que YO tengo repetidas y AL OTRO le faltan
+    // Filtrar solo familias aprobadas
+    const alumnosAprobados = alumnosData.filter(a => a.familia?.estado === 'aprobado')
+
+    // Figuritas que YO tengo repetidas
+    const { data: misRepetidas } = await supabase
+      .from('figurita_alumno')
+      .select('numero_figurita')
+      .eq('id_alumno', alumnoId)
+      .eq('id_album', albumId)
+      .eq('estado', 'repetida')
+
+    const misRepetidasNums = (misRepetidas || []).map(f => f.numero_figurita)
+
+    // Armar resultados
     const resultadosFinales = []
-    for (const [idAlumnoOtro, datos] of Object.entries(porAlumno)) {
+
+    for (const alumnoOtro of alumnosAprobados) {
+      const figuritasQueTiene = repetidas
+        .filter(r => r.id_alumno === alumnoOtro.id)
+        .map(r => r.numero_figurita)
+
       // Figuritas faltantes del otro alumno
       const { data: susFaltantes } = await supabase
         .from('figurita_alumno')
         .select('numero_figurita')
-        .eq('id_alumno', idAlumnoOtro)
+        .eq('id_alumno', alumnoOtro.id)
         .eq('id_album', albumId)
         .eq('estado', 'faltante')
 
-      // Figuritas que YO tengo repetidas
-      const { data: misRepetidas } = await supabase
-        .from('figurita_alumno')
-        .select('numero_figurita')
-        .eq('id_alumno', alumnoId)
-        .eq('id_album', albumId)
-        .eq('estado', 'repetida')
-
       const susFaltantesNums = (susFaltantes || []).map(f => f.numero_figurita)
-      const misRepetidasNums = (misRepetidas || []).map(f => f.numero_figurita)
       const figuritasQueTeFantanYYoTengo = susFaltantesNums.filter(n => misRepetidasNums.includes(n))
 
       resultadosFinales.push({
-        ...datos,
+        alumno: alumnoOtro,
+        figuritasQueTiene,
         figuritasQueTeFantanYYoTengo,
-        totalCoincidencias: datos.figuritasQueTiene.length + figuritasQueTeFantanYYoTengo.length
+        totalCoincidencias: figuritasQueTiene.length + figuritasQueTeFantanYYoTengo.length
       })
     }
 
-    // Ordenar por mayor cantidad de coincidencias
     resultadosFinales.sort((a, b) => b.totalCoincidencias - a.totalCoincidencias)
     setResultados(resultadosFinales)
 
