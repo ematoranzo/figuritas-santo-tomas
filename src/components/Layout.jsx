@@ -24,6 +24,7 @@ export default function Layout() {
             </>}
             {user && familia?.estado === 'aprobado' && <>
               <Link to="/dashboard">Mis álbumes</Link>
+              <Link to="/perfil">Mi perfil</Link>
               {familia?.rol === 'admin' && <Link to="/admin">Panel admin</Link>}
               <button onClick={handleLogout} className="btn-logout">Salir</button>
             </>}
