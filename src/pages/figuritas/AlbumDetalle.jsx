@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 import PanelVisual from './PanelVisual'
 import CargaManual from './CargaManual'
+import ExportarPlanilla from './ExportarPlanilla'
 
 export default function AlbumDetalle() {
   const { albumId, alumnoId } = useParams()
@@ -16,6 +17,7 @@ export default function AlbumDetalle() {
   const [modo, setModo] = useState('faltante')
   const [guardando, setGuardando] = useState(false)
   const [cambiosPendientes, setCambiosPendientes] = useState({})
+  const [mostrarExportar, setMostrarExportar] = useState(false)
 
   useEffect(() => { cargarDatos() }, [albumId, alumnoId])
 
@@ -157,6 +159,12 @@ export default function AlbumDetalle() {
 
       <div className="album-acciones">
         <button
+          onClick={() => setMostrarExportar(true)}
+          className="btn-secondary btn-grande"
+        >
+          📤 Exportar planilla
+        </button>
+        <button
           onClick={() => navigate(`/coincidencias/${albumId}/alumno/${alumnoId}`)}
           className="btn-secondary btn-grande"
         >
@@ -166,6 +174,16 @@ export default function AlbumDetalle() {
           {guardando ? 'Guardando...' : tieneCambios ? `💾 Guardar cambios (${Object.keys(cambiosPendientes).length})` : '✓ Todo guardado'}
         </button>
       </div>
+
+      {mostrarExportar && (
+        <ExportarPlanilla
+          alumnoId={alumnoId}
+          alumnoNombre={`${alumno.nombre} ${alumno.apellido}`}
+          albumId={albumId}
+          albumNombre={album.nombre}
+          onCerrar={() => setMostrarExportar(false)}
+        />
+      )}
     </div>
   )
 }
