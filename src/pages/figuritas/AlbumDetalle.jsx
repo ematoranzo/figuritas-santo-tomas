@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import PanelVisual from './PanelVisual'
 import CargaManual from './CargaManual'
 import ExportarPlanilla from './ExportarPlanilla'
+import ImportarPlanilla from './ImportarPlanilla'
 
 export default function AlbumDetalle() {
   const { albumId, alumnoId } = useParams()
@@ -18,6 +19,7 @@ export default function AlbumDetalle() {
   const [guardando, setGuardando] = useState(false)
   const [cambiosPendientes, setCambiosPendientes] = useState({})
   const [mostrarExportar, setMostrarExportar] = useState(false)
+  const [mostrarImportar, setMostrarImportar] = useState(false)
 
   useEffect(() => { cargarDatos() }, [albumId, alumnoId])
 
@@ -159,6 +161,12 @@ export default function AlbumDetalle() {
 
       <div className="album-acciones">
         <button
+          onClick={() => setMostrarImportar(true)}
+          className="btn-secondary btn-grande"
+        >
+          📥 Importar planilla
+        </button>
+        <button
           onClick={() => setMostrarExportar(true)}
           className="btn-secondary btn-grande"
         >
@@ -182,6 +190,17 @@ export default function AlbumDetalle() {
           albumId={albumId}
           albumNombre={album.nombre}
           onCerrar={() => setMostrarExportar(false)}
+        />
+      )}
+
+      {mostrarImportar && (
+        <ImportarPlanilla
+          alumnoId={alumnoId}
+          albumId={albumId}
+          albumNombre={album.nombre}
+          cantidadTotal={album.cantidad_total}
+          onCerrar={() => setMostrarImportar(false)}
+          onImportado={cargarDatos}
         />
       )}
     </div>
