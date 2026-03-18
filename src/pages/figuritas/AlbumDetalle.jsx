@@ -15,11 +15,14 @@ export default function AlbumDetalle() {
   const [album, setAlbum] = useState(null)
   const [alumno, setAlumno] = useState(null)
   const [figuritas, setFiguritas] = useState({})
-  const [modo, setModo] = useState('faltante')
+  const [modo, setModo] = useState('repetida')
   const [guardando, setGuardando] = useState(false)
   const [cambiosPendientes, setCambiosPendientes] = useState({})
   const [mostrarExportar, setMostrarExportar] = useState(false)
   const [mostrarImportar, setMostrarImportar] = useState(false)
+  const [albumAlumno, setAlbumAlumno] = useState(null)
+  const [completando, setCompletando] = useState(false)
+  const [reactivando, setReactivando] = useState(false)
 
   useEffect(() => { cargarDatos() }, [albumId, alumnoId])
 
@@ -34,11 +37,36 @@ export default function AlbumDetalle() {
     const mapa = {}
     figuritasData?.forEach(f => { mapa[f.numero_figurita] = f.estado })
     setFiguritas(mapa)
+
+    const { data: aaData } = await supabase
+      .from('album_alumno')
+      .select('*')
+      .eq('id_alumno', alumnoId)
+      .eq('id_album', albumId)
+      .single()
+
+    if (!aaData) {
+      const { data: nuevo } = await supabase
+        .from('album_alumno')
+        .insert({ id_alumno: alumnoId, id_album: albumId, estado: 'en_progreso' })
+        .select()
+        .single()
+      setAlbumAlumno(nuevo)
+    } else {
+      setAlbumAlumno(aaData)
+    }
   }
 
   function toggleFigurita(n) {
     const estadoActual = figuritas[n]
     const estadoOpuesto = modo === 'faltante' ? 'repetida' : 'faltante'
+
+    // Si álbum completado, solo permitir repetidas
+    if (yaCompletado && modo === 'faltante') {
+      toast.error('El álbum está completado. Solo podés marcar repetidas.')
+      return
+    }
+
     if (estadoActual === estadoOpuesto) {
       toast.error(`La figurita ${n} ya está como ${estadoOpuesto}`)
       return
@@ -98,11 +126,78 @@ export default function AlbumDetalle() {
     }
   }
 
+  async function marcarCompletado() {
+    if (faltantes > 0) {
+      toast.error('Todavía tenés figuritas faltantes pendientes')
+      return
+    }
+    if (!confirm('¿Confirmás que completaste el álbum? 🎉')) return
+
+    setCompletando(true)
+    try {
+      const fechaCompletado = new Date().toISOString()
+
+      await supabase.from('album_alumno')
+        .update({ estado: 'completado', fecha_completado: fechaCompletado })
+        .eq('id_alumno', alumnoId)
+        .eq('id_album', albumId)
+
+      await supabase.from('noticia').insert({
+        titulo: `🎉 ¡${alumno.nombre} ${alumno.apellido} completó el álbum ${album.nombre}!`,
+        resumen: `${alumno.nombre} ${alumno.apellido} de ${alumno.grado_sala?.descripcion} completó el álbum ${album.nombre}. ¡Felicitaciones!`,
+        contenido: `¡Felicitaciones a ${alumno.nombre} ${alumno.apellido} de ${alumno.grado_sala?.descripcion} por completar el álbum ${album.nombre}! Un logro increíble. 🎴🏆`,
+        estado: 'borrador',
+        origen: 'automatica',
+        id_alumno_ref: alumnoId,
+        id_album_ref: albumId,
+        fecha_publicacion: fechaCompletado
+      })
+
+      setAlbumAlumno(prev => ({ ...prev, estado: 'completado', fecha_completado: fechaCompletado }))
+      setModo('repetida')
+      toast.success('¡Felicitaciones! Álbum completado 🏆')
+    } catch (err) {
+      toast.error('Error al completar el álbum')
+    } finally {
+      setCompletando(false)
+    }
+  }
+
+  async function reactivarAlbum() {
+    if (!confirm('¿Querés reactivar el álbum? Se borrará la noticia de felicitación y podrás volver a marcar faltantes.')) return
+
+    setReactivando(true)
+    try {
+      // Reactivar album_alumno
+      await supabase.from('album_alumno')
+        .update({ estado: 'en_progreso', fecha_completado: null })
+        .eq('id_alumno', alumnoId)
+        .eq('id_album', albumId)
+
+      // Borrar noticia automática asociada
+      await supabase.from('noticia')
+        .delete()
+        .eq('id_alumno_ref', alumnoId)
+        .eq('id_album_ref', albumId)
+        .eq('origen', 'automatica')
+        .eq('estado', 'borrador')
+
+      setAlbumAlumno(prev => ({ ...prev, estado: 'en_progreso', fecha_completado: null }))
+      setModo('faltante')
+      toast.success('Álbum reactivado — podés seguir marcando figuritas')
+    } catch (err) {
+      toast.error('Error al reactivar el álbum')
+    } finally {
+      setReactivando(false)
+    }
+  }
+
   if (!album || !alumno) return <div className="loading">Cargando...</div>
 
   const faltantes = Object.values(figuritas).filter(e => e === 'faltante').length
   const repetidas = Object.values(figuritas).filter(e => e === 'repetida').length
   const tieneCambios = Object.keys(cambiosPendientes).length > 0
+  const yaCompletado = albumAlumno?.estado === 'completado'
 
   return (
     <div className="album-detalle">
@@ -112,6 +207,9 @@ export default function AlbumDetalle() {
           <h1>{album.nombre}</h1>
           <p>{alumno.nombre} {alumno.apellido} · {alumno.grado_sala?.descripcion}</p>
         </div>
+        {yaCompletado && (
+          <div className="album-completado-badge">🏆 Completado</div>
+        )}
       </div>
 
       <div className="album-resumen">
@@ -133,12 +231,28 @@ export default function AlbumDetalle() {
         </div>
       </div>
 
+      {yaCompletado && (
+        <div className="album-completado-msg">
+          <span>🏆</span>
+          <h2>¡Álbum completado!</h2>
+          <p>Completado el {albumAlumno.fecha_completado
+            ? new Date(albumAlumno.fecha_completado).toLocaleDateString('es-AR')
+            : 'hoy'}
+          </p>
+          <p style={{ fontSize: '.9rem', opacity: .8, marginTop: 8 }}>
+            Podés seguir marcando figuritas repetidas abajo.
+          </p>
+        </div>
+      )}
+
       <div className="modo-selector">
         <span>Estoy marcando:</span>
-        <button onClick={() => setModo('faltante')}
-          className={`modo-btn ${modo === 'faltante' ? 'active-faltante' : ''}`}>
-          📋 Faltantes
-        </button>
+        {!yaCompletado && (
+          <button onClick={() => setModo('faltante')}
+            className={`modo-btn ${modo === 'faltante' ? 'active-faltante' : ''}`}>
+            📋 Faltantes
+          </button>
+        )}
         <button onClick={() => setModo('repetida')}
           className={`modo-btn ${modo === 'repetida' ? 'active-repetida' : ''}`}>
           🔁 Repetidas
@@ -160,27 +274,41 @@ export default function AlbumDetalle() {
       />
 
       <div className="album-acciones">
-        <button
-          onClick={() => setMostrarImportar(true)}
-          className="btn-secondary btn-grande"
-        >
-          📥 Importar planilla
+        <button onClick={() => setMostrarImportar(true)} className="btn-secondary btn-grande">
+          📥 Importar
         </button>
-        <button
-          onClick={() => setMostrarExportar(true)}
-          className="btn-secondary btn-grande"
-        >
-          📤 Exportar planilla
+        <button onClick={() => setMostrarExportar(true)} className="btn-secondary btn-grande">
+          📤 Exportar
         </button>
         <button
           onClick={() => navigate(`/coincidencias/${albumId}/alumno/${alumnoId}`)}
           className="btn-secondary btn-grande"
         >
-          🔍 Buscar coincidencias
+          🔍 Coincidencias
         </button>
         <button onClick={guardar} className="btn-primary btn-grande" disabled={guardando || !tieneCambios}>
-          {guardando ? 'Guardando...' : tieneCambios ? `💾 Guardar cambios (${Object.keys(cambiosPendientes).length})` : '✓ Todo guardado'}
+          {guardando ? 'Guardando...' : tieneCambios ? `💾 Guardar (${Object.keys(cambiosPendientes).length})` : '✓ Guardado'}
         </button>
+
+        {!yaCompletado && faltantes === 0 && Object.keys(figuritas).length > 0 && (
+          <button
+            onClick={marcarCompletado}
+            disabled={completando}
+            className="btn-completado btn-grande"
+          >
+            {completando ? 'Guardando...' : '🏆 Marcar como completado'}
+          </button>
+        )}
+
+        {yaCompletado && (
+          <button
+            onClick={reactivarAlbum}
+            disabled={reactivando}
+            className="btn-reactivar btn-grande"
+          >
+            {reactivando ? 'Reactivando...' : '↩ Reactivar álbum'}
+          </button>
+        )}
       </div>
 
       {mostrarExportar && (
