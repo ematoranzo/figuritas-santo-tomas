@@ -15,7 +15,7 @@ export default function AlbumDetalle() {
   const [album, setAlbum] = useState(null)
   const [alumno, setAlumno] = useState(null)
   const [figuritas, setFiguritas] = useState({})
-  const [modo, setModo] = useState('repetida')
+  const [modo, setModo] = useState('faltante')
   const [guardando, setGuardando] = useState(false)
   const [cambiosPendientes, setCambiosPendientes] = useState({})
   const [mostrarExportar, setMostrarExportar] = useState(false)
@@ -23,6 +23,7 @@ export default function AlbumDetalle() {
   const [albumAlumno, setAlbumAlumno] = useState(null)
   const [completando, setCompletando] = useState(false)
   const [reactivando, setReactivando] = useState(false)
+  const [iniciando, setIniciando] = useState(false)
 
   useEffect(() => { cargarDatos() }, [albumId, alumnoId])
 
@@ -52,16 +53,40 @@ export default function AlbumDetalle() {
         .select()
         .single()
       setAlbumAlumno(nuevo)
+
+      if (!figuritasData || figuritasData.length === 0) {
+        setIniciando(true)
+        await cargarTodasComoFaltantes(albumData.cantidad_total)
+        setIniciando(false)
+      }
     } else {
       setAlbumAlumno(aaData)
     }
+  }
+
+  async function cargarTodasComoFaltantes(cantidadTotal) {
+    await supabase.rpc('inicializar_figuritas_album', {
+      p_alumno_id: alumnoId,
+      p_album_id: albumId,
+      p_cantidad_total: cantidadTotal
+    })
+
+    const { data: figuritasData } = await supabase
+      .from('figurita_alumno')
+      .select('*')
+      .eq('id_alumno', alumnoId)
+      .eq('id_album', albumId)
+
+    const mapa = {}
+    figuritasData?.forEach(f => { mapa[f.numero_figurita] = f.estado })
+    setFiguritas(mapa)
+    setModo('faltante')
   }
 
   function toggleFigurita(n) {
     const estadoActual = figuritas[n]
     const estadoOpuesto = modo === 'faltante' ? 'repetida' : 'faltante'
 
-    // Si álbum completado, solo permitir repetidas
     if (yaCompletado && modo === 'faltante') {
       toast.error('El álbum está completado. Solo podés marcar repetidas.')
       return
@@ -146,7 +171,8 @@ export default function AlbumDetalle() {
         titulo: `🎉 ¡${alumno.nombre} ${alumno.apellido} completó el álbum ${album.nombre}!`,
         resumen: `${alumno.nombre} ${alumno.apellido} de ${alumno.grado_sala?.descripcion} completó el álbum ${album.nombre}. ¡Felicitaciones!`,
         contenido: `¡Felicitaciones a ${alumno.nombre} ${alumno.apellido} de ${alumno.grado_sala?.descripcion} por completar el álbum ${album.nombre}! Un logro increíble. 🎴🏆`,
-        estado: 'borrador',
+        estado: 'publicada',
+        destacada: true,
         origen: 'automatica',
         id_alumno_ref: alumnoId,
         id_album_ref: albumId,
@@ -168,19 +194,15 @@ export default function AlbumDetalle() {
 
     setReactivando(true)
     try {
-      // Reactivar album_alumno
       await supabase.from('album_alumno')
         .update({ estado: 'en_progreso', fecha_completado: null })
         .eq('id_alumno', alumnoId)
         .eq('id_album', albumId)
 
-      // Borrar noticia automática asociada
-      await supabase.from('noticia')
-        .delete()
-        .eq('id_alumno_ref', alumnoId)
-        .eq('id_album_ref', albumId)
-        .eq('origen', 'automatica')
-        .eq('estado', 'borrador')
+      await supabase.rpc('borrar_noticia_automatica', {
+        p_alumno_id: alumnoId,
+        p_album_id: albumId
+      })
 
       setAlbumAlumno(prev => ({ ...prev, estado: 'en_progreso', fecha_completado: null }))
       setModo('faltante')
@@ -193,6 +215,7 @@ export default function AlbumDetalle() {
   }
 
   if (!album || !alumno) return <div className="loading">Cargando...</div>
+  if (iniciando) return <div className="loading">Preparando álbum... ⏳</div>
 
   const faltantes = Object.values(figuritas).filter(e => e === 'faltante').length
   const repetidas = Object.values(figuritas).filter(e => e === 'repetida').length
@@ -327,8 +350,8 @@ export default function AlbumDetalle() {
           albumId={albumId}
           albumNombre={album.nombre}
           cantidadTotal={album.cantidad_total}
-          onCerrar={() => setMostrarImportar(false)}
           onImportado={cargarDatos}
+          onCerrar={() => setMostrarImportar(false)}
         />
       )}
     </div>

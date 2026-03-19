@@ -14,6 +14,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminUsuarios from './pages/admin/AdminUsuarios'
 import AdminAlbumes from './pages/admin/AdminAlbumes'
 import AdminGrados from './pages/admin/AdminGrados'
+import AdminNoticias from './pages/admin/AdminNoticias'
 
 function RutaProtegida({ children }) {
   const { user, familia, loading } = useAuth()
@@ -53,6 +54,7 @@ function AppRoutes() {
         <Route path="usuarios" element={<AdminUsuarios />} />
         <Route path="albumes" element={<AdminAlbumes />} />
         <Route path="grados" element={<AdminGrados />} />
+        <Route path="noticias" element={<AdminNoticias />} />
       </Route>
     </Routes>
   )

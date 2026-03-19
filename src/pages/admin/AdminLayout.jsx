@@ -2,7 +2,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 export default function AdminLayout() {
-  const { perfil, logout } = useAuth()
+  const { perfil, familia, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -13,9 +13,10 @@ export default function AdminLayout() {
 
   const links = [
     { to: '/admin', label: '🏠 Inicio', exact: true },
-    { to: '/admin/usuarios', label: '👥 Usuarios' },
+    { to: '/admin/usuarios', label: '👨‍👩‍👧‍👦 Familias' },
     { to: '/admin/albumes', label: '📚 Álbumes' },
     { to: '/admin/grados', label: '🏫 Grados y salas' },
+    { to: '/admin/noticias', label: '📰 Noticias' },
   ]
 
   return (
@@ -42,7 +43,7 @@ export default function AdminLayout() {
         </nav>
         <div className="admin-sidebar-footer">
           <div className="admin-user">
-            <div className="admin-user-name">{perfil?.nombre_alumno}</div>
+            <div className="admin-user-name">{familia?.nombre_adulto}</div>
             <div className="admin-user-role">Administradora</div>
           </div>
           <button onClick={handleLogout} className="admin-logout">Salir</button>

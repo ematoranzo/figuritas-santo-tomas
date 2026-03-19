@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 export default function Dashboard() {
   const { familia, alumnos } = useAuth()
   const [albumes, setAlbumes] = useState([])
+  const [noticias, setNoticias] = useState([])
 
   useEffect(() => {
     supabase.from('album')
@@ -13,7 +14,18 @@ export default function Dashboard() {
       .eq('estado', 'activo')
       .order('nombre')
       .then(({ data }) => setAlbumes(data || []))
+
+    // Noticias manuales + felicitaciones publicadas
+    supabase.from('noticia')
+      .select('*')
+      .eq('estado', 'publicada')
+      .order('fecha_publicacion', { ascending: false })
+      .limit(20)
+      .then(({ data }) => setNoticias(data || []))
   }, [])
+
+  const noticiasМanuales = noticias.filter(n => n.origen === 'manual')
+  const felicitaciones = noticias.filter(n => n.origen === 'automatica')
 
   return (
     <div className="dashboard">
@@ -63,6 +75,50 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+      )}
+
+      {felicitaciones.length > 0 && (
+        <section className="noticias" style={{ marginTop: 40 }}>
+          <h2>🏆 Felicitaciones</h2>
+          <div className="feed-noticias">
+            {felicitaciones.map(n => (
+              <div key={n.id} className="feed-noticia-card felicitacion-card">
+                <div className="feed-noticia-body">
+                  <h3>{n.titulo}</h3>
+                  {n.resumen && <p>{n.resumen}</p>}
+                  {n.fecha_publicacion && (
+                    <span className="feed-noticia-fecha">
+                      {new Date(n.fecha_publicacion).toLocaleDateString('es-AR')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {noticiasМanuales.length > 0 && (
+        <section className="noticias" style={{ marginTop: 40 }}>
+          <h2>📰 Novedades</h2>
+          <div className="feed-noticias">
+            {noticiasМanuales.map(n => (
+              <div key={n.id} className={`feed-noticia-card ${n.destacada ? 'destacada' : ''}`}>
+                {n.imagen && <img src={n.imagen} alt={n.titulo} className="feed-noticia-img" />}
+                <div className="feed-noticia-body">
+                  {n.destacada && <span className="feed-destacada-badge">⭐ Destacada</span>}
+                  <h3>{n.titulo}</h3>
+                  {n.resumen && <p>{n.resumen}</p>}
+                  {n.fecha_publicacion && (
+                    <span className="feed-noticia-fecha">
+                      {new Date(n.fecha_publicacion).toLocaleDateString('es-AR')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   )
