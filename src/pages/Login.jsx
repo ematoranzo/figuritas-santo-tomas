@@ -73,6 +73,9 @@ export default function Login() {
         <p className="form-footer">
           ¿No tenés cuenta? <Link to="/registro">Registrate acá</Link>
         </p>
+        <p className="form-footer">
+          <Link to="/olvide-pin">¿Olvidaste tu PIN?</Link>
+        </p>
       </div>
     </div>
   )

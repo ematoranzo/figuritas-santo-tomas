@@ -15,7 +15,7 @@ export default function Layout() {
       <header className="header">
         <div className="header-inner">
           <Link to="/" className="logo">
-            <img src="/Logo.png" alt="FigurItas Santo Tomás" className="logo-img" />
+            <img src="/Logo.png" alt="Figuritas Santo Tomás" className="logo-img" />
           </Link>
           <nav className="nav">
             {!user && <>
@@ -39,7 +39,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <footer className="footer">
-        <p>Colegio Santo Tomás · Santa Rosa, La Pampa · <Link to="/privacidad">Política de privacidad</Link></p>
+        <p><Link to="/privacidad">Política de privacidad</Link></p>
       </footer>
     </div>
   )

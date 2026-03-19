@@ -28,7 +28,7 @@ export default function Home() {
     <div className="home">
       <section className="hero">
         <div className="hero-content">
-          <h1>🎴 {config.nombre_sitio || 'FigurItas Santo Tomás'}</h1>
+          <h1>🎴 {config.nombre_sitio || 'Figuritas Santo Tomás'}</h1>
           <p>{config.mensaje_bienvenida || '¡Bienvenidos a la plataforma de intercambio de figuritas!'}</p>
           <div className="hero-actions">
             <Link to="/registro" className="btn-primary btn-grande">Registrarse</Link>
@@ -43,7 +43,7 @@ export default function Home() {
           <div className="paso">
             <span className="paso-num">1</span>
             <h3>Registrate</h3>
-            <p>Completá el formulario con los datos del alumno y del adulto responsable.</p>
+            <p>Completá el formulario con los datos del alumno y del adulto responsable. Tenés que esperar que te aprueben.</p>
           </div>
           <div className="paso">
             <span className="paso-num">2</span>

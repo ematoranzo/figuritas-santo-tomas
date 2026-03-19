@@ -10,7 +10,7 @@ export default function Privacidad() {
         <div className="privacidad-contenido">
 
           <h3>1. Propósito de la plataforma</h3>
-          <p>FigurItas Santo Tomás es una plataforma web desarrollada exclusivamente con fines lúdicos y educativos para facilitar el intercambio de figuritas entre alumnos de nivel inicial y primaria del Colegio Santo Tomás de Santa Rosa, La Pampa. Su uso es voluntario y gratuito.</p>
+          <p>FigurItas Santo Tomás es una plataforma web desarrollada exclusivamente con fines lúdicos y educativos para facilitar el intercambio de figuritas entre alumnos de nivel inicial y primaria del Colegio Santo Tomás de Santa Rosa, La Pampa. Su uso es voluntario y gratuito. ESTA APLICACIÓN NO PERTENECE AL COLEGIO SANTO TOMÁS NI ES OFICIAL</p>
 
           <h3>2. Datos que se recopilan</h3>
           <p>Para el funcionamiento de la plataforma se solicitan los siguientes datos:</p>
