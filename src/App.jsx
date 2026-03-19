@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard'
 import AlbumDetalle from './pages/figuritas/AlbumDetalle'
 import Coincidencias from './pages/coincidencias/Coincidencias'
 import MiPerfil from './pages/MiPerfil'
+import Privacidad from './pages/Privacidad'
 import AdminLayout from './pages/admin/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminUsuarios from './pages/admin/AdminUsuarios'
@@ -44,6 +45,7 @@ function AppRoutes() {
         <Route index element={<Home />} />
         <Route path="login" element={<Login />} />
         <Route path="registro" element={<Registro />} />
+        <Route path="privacidad" element={<Privacidad />} />
         <Route path="dashboard" element={<RutaProtegida><Dashboard /></RutaProtegida>} />
         <Route path="perfil" element={<RutaProtegida><MiPerfil /></RutaProtegida>} />
         <Route path="album/:albumId/alumno/:alumnoId" element={<RutaProtegida><AlbumDetalle /></RutaProtegida>} />
