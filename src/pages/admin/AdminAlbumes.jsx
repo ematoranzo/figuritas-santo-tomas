@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
+import * as XLSX from 'xlsx'
 
 const EMPTY = { nombre: '', descripcion: '', cantidad_total: '', estado: 'activo' }
 
@@ -9,13 +10,36 @@ export default function AdminAlbumes() {
   const [form, setForm] = useState(EMPTY)
   const [editando, setEditando] = useState(null)
   const [cargando, setCargando] = useState(false)
+  const [completados, setCompletados] = useState([])
+  const [filtroAlbum, setFiltroAlbum] = useState('todos')
 
-  useEffect(() => { cargarAlbumes() }, [])
+  useEffect(() => { cargarAlbumes(); cargarCompletados() }, [])
 
   async function cargarAlbumes() {
     const { data } = await supabase.from('album')
       .select('*').neq('estado', 'baja').order('created_at', { ascending: false })
     setAlbumes(data || [])
+  }
+
+  async function cargarCompletados() {
+    const { data } = await supabase
+      .from('album_alumno')
+      .select(`
+        id,
+        estado,
+        fecha_completado,
+        alumno:id_alumno (
+          nombre,
+          apellido,
+          familia:id_familia ( nombre_adulto, apellido_adulto ),
+          grado_sala:id_grado_sala ( descripcion )
+        ),
+        album:id_album ( id, nombre )
+      `)
+      .eq('estado', 'completado')
+      .order('fecha_completado', { ascending: false })
+
+    setCompletados(data || [])
   }
 
   async function handleSubmit(e) {
@@ -56,6 +80,48 @@ export default function AdminAlbumes() {
     setEditando(a.id)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  function exportarCompletados() {
+    const datos = completadosFiltrados.map(c => ({
+      'Alumno': `${c.alumno?.nombre || ''} ${c.alumno?.apellido || ''}`.trim(),
+      'Grado/Sala': c.alumno?.grado_sala?.descripcion || '—',
+      'Familia': `${c.alumno?.familia?.nombre_adulto || ''} ${c.alumno?.familia?.apellido_adulto || ''}`.trim(),
+      'Álbum': c.album?.nombre || '—',
+      'Fecha completado': c.fecha_completado
+        ? new Date(c.fecha_completado).toLocaleDateString('es-AR')
+        : '—'
+    }))
+
+    if (datos.length === 0) {
+      toast.error('No hay datos para exportar')
+      return
+    }
+
+    const ws = XLSX.utils.json_to_sheet(datos)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Completados')
+
+    ws['!cols'] = [
+      { wch: 25 },
+      { wch: 20 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 18 },
+    ]
+
+    const sufijo = filtroAlbum === 'todos'
+      ? 'todos'
+      : (completados.find(c => c.album?.id === filtroAlbum)?.album?.nombre || 'album').replace(/\s+/g, '_')
+
+    XLSX.writeFile(wb, `albumes_completados_${sufijo}.xlsx`)
+    toast.success('¡Planilla exportada!')
+  }
+
+  const completadosFiltrados = filtroAlbum === 'todos'
+    ? completados
+    : completados.filter(c => c.album?.id === filtroAlbum)
+
+  const albumesConCompletados = [...new Set(completados.map(c => c.album?.id).filter(Boolean))]
 
   return (
     <div className="admin-page">
@@ -109,6 +175,8 @@ export default function AdminAlbumes() {
                 {a.descripcion && <p>{a.descripcion}</p>}
                 <div className="album-admin-info">
                   <span>🎴 {a.cantidad_total} figuritas</span>
+                  {' · '}
+                  <span>🏆 {completados.filter(c => c.album?.id === a.id).length} completaron</span>
                 </div>
                 <div className="acciones">
                   <button onClick={() => editar(a)} className="btn-accion btn-primary-sm">✏️ Editar</button>
@@ -117,6 +185,71 @@ export default function AdminAlbumes() {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      <div className="admin-card">
+        <h2>🏆 Álbumes completados ({completados.length})</h2>
+
+        {completados.length === 0 ? (
+          <p className="admin-empty">Todavía ningún alumno completó un álbum.</p>
+        ) : (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+              <div className="filtros-estado">
+                <button
+                  className={`filtro-btn ${filtroAlbum === 'todos' ? 'active' : ''}`}
+                  onClick={() => setFiltroAlbum('todos')}
+                >
+                  Todos ({completados.length})
+                </button>
+                {albumesConCompletados.map(albumId => {
+                  const album = completados.find(c => c.album?.id === albumId)?.album
+                  const cant = completados.filter(c => c.album?.id === albumId).length
+                  return (
+                    <button
+                      key={albumId}
+                      className={`filtro-btn ${filtroAlbum === albumId ? 'active' : ''}`}
+                      onClick={() => setFiltroAlbum(albumId)}
+                    >
+                      {album?.nombre} ({cant})
+                    </button>
+                  )
+                })}
+              </div>
+              <button onClick={exportarCompletados} className="btn-accion btn-primary-sm">
+                📤 Exportar Excel
+              </button>
+            </div>
+
+            <div className="tabla-wrapper">
+              <table className="admin-tabla">
+                <thead>
+                  <tr>
+                    <th>Alumno</th>
+                    <th>Grado/Sala</th>
+                    <th>Familia</th>
+                    <th>Álbum</th>
+                    <th>Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {completadosFiltrados.map(c => (
+                    <tr key={c.id}>
+                      <td>{c.alumno?.nombre} {c.alumno?.apellido}</td>
+                      <td>{c.alumno?.grado_sala?.descripcion || '—'}</td>
+                      <td>{c.alumno?.familia?.nombre_adulto} {c.alumno?.familia?.apellido_adulto}</td>
+                      <td>{c.album?.nombre}</td>
+                      <td>{c.fecha_completado
+                        ? new Date(c.fecha_completado).toLocaleDateString('es-AR')
+                        : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -27,7 +27,24 @@ export default function AdminUsuarios() {
     setCargando(false)
   }
 
+  async function enviarEmailAprobacion(familia) {
+    try {
+      await supabase.functions.invoke('enviar-email', {
+        body: {
+          tipo: 'aprobacion',
+          emailDestino: familia.email_adulto,
+          nombreAdulto: `${familia.nombre_adulto} ${familia.apellido_adulto}`
+        }
+      })
+    } catch (err) {
+      console.error('Error enviando email de aprobación:', err)
+    }
+  }
+
   async function cambiarEstado(id, nuevoEstado) {
+    const familia = familias.find(f => f.id === id)
+    const estadoAnterior = familia?.estado
+
     const { error } = await supabase.from('familia')
       .update({ estado: nuevoEstado, updated_at: new Date().toISOString() })
       .eq('id', id)
@@ -35,6 +52,12 @@ export default function AdminUsuarios() {
       toast.error('Error al actualizar')
     } else {
       toast.success(`Familia ${nuevoEstado}`)
+
+      // Enviar email si se aprueba (desde pendiente, rechazado o reactivación)
+      if (nuevoEstado === 'aprobado' && familia) {
+        enviarEmailAprobacion(familia)
+      }
+
       cargarFamilias()
     }
   }

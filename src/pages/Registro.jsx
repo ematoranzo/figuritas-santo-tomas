@@ -43,6 +43,27 @@ export default function Registro() {
     setAlumnos(prev => prev.filter((_, i) => i !== idx))
   }
 
+  async function enviarEmailBienvenida(gradosMap) {
+    try {
+      const alumnosEmail = alumnos.map(a => ({
+        nombre: a.nombre.trim(),
+        apellido: a.apellido.trim(),
+        grado: gradosMap[a.id_grado_sala] || ''
+      }))
+
+      await supabase.functions.invoke('enviar-email', {
+        body: {
+          tipo: 'bienvenida',
+          emailDestino: form.email_adulto.trim(),
+          nombreAdulto: `${form.nombre_adulto.trim()} ${form.apellido_adulto.trim()}`,
+          alumnos: alumnosEmail
+        }
+      })
+    } catch (err) {
+      console.error('Error enviando email de bienvenida:', err)
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (form.pin.length !== 6) { toast.error('El PIN debe tener 6 números'); return }
@@ -80,7 +101,14 @@ export default function Registro() {
       const { error: alumnosError } = await supabase.from('alumno').insert(alumnosData)
       if (alumnosError) throw alumnosError
 
-      toast.success('¡Registro enviado! La administradora revisará tu solicitud.')
+      // Armar mapa de grados para el email
+      const gradosMap = {}
+      grados.forEach(g => { gradosMap[g.id] = g.descripcion })
+
+      // Enviar email de bienvenida (no bloqueante)
+      enviarEmailBienvenida(gradosMap)
+
+      toast.success('¡Registro enviado! Revisá tu email. La administradora revisará tu solicitud.')
       navigate('/')
     } catch (err) {
       toast.error(err.message || 'Error al registrarse. Intentá de nuevo.')

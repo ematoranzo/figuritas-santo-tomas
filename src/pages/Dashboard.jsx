@@ -7,22 +7,90 @@ export default function Dashboard() {
   const { familia, alumnos } = useAuth()
   const [albumes, setAlbumes] = useState([])
   const [noticias, setNoticias] = useState([])
+  const [progreso, setProgreso] = useState({})
 
   useEffect(() => {
-    supabase.from('album')
+    cargarDatos()
+  }, [alumnos])
+
+  async function cargarDatos() {
+    const { data: albumesData } = await supabase
+      .from('album')
       .select('*')
       .eq('estado', 'activo')
       .order('nombre')
-      .then(({ data }) => setAlbumes(data || []))
+    setAlbumes(albumesData || [])
 
-    // Noticias manuales + felicitaciones publicadas
-    supabase.from('noticia')
+    const { data: noticiasData } = await supabase
+      .from('noticia')
       .select('*')
       .eq('estado', 'publicada')
       .order('fecha_publicacion', { ascending: false })
       .limit(20)
-      .then(({ data }) => setNoticias(data || []))
-  }, [])
+    setNoticias(noticiasData || [])
+
+    if (alumnos.length > 0 && albumesData?.length > 0) {
+      const alumnoIds = alumnos.map(a => a.id)
+
+      const [{ data: figuritasData }, { data: albumAlumnoData }] = await Promise.all([
+        supabase
+          .from('figurita_alumno')
+          .select('id_alumno, id_album, estado')
+          .in('id_alumno', alumnoIds),
+        supabase
+          .from('album_alumno')
+          .select('id_alumno, id_album, estado')
+          .in('id_alumno', alumnoIds)
+      ])
+
+      const mapaProgreso = {}
+      const mapaEstadoAlbum = {}
+
+      albumAlumnoData?.forEach(aa => {
+        mapaEstadoAlbum[`${aa.id_alumno}-${aa.id_album}`] = aa.estado
+      })
+
+      const conteoFaltantes = {}
+      figuritasData?.forEach(f => {
+        const key = `${f.id_alumno}-${f.id_album}`
+        if (!conteoFaltantes[key]) conteoFaltantes[key] = 0
+        if (f.estado === 'faltante') conteoFaltantes[key]++
+      })
+
+      albumesData.forEach(album => {
+        alumnos.forEach(alumno => {
+          const key = `${alumno.id}-${album.id}`
+          const faltantes = conteoFaltantes[key] || 0
+          const estadoAlbum = mapaEstadoAlbum[key] || null
+          mapaProgreso[key] = {
+            faltantes,
+            total: album.cantidad_total,
+            completado: estadoAlbum === 'completado',
+            iniciado: estadoAlbum !== null
+          }
+        })
+      })
+
+      setProgreso(mapaProgreso)
+    }
+  }
+
+  function getProgresoInfo(alumnoId, albumId) {
+    const key = `${alumnoId}-${albumId}`
+    const data = progreso[key]
+    if (!data || !data.iniciado) return null
+
+    const conseguidas = data.total - data.faltantes
+    const porcentaje = data.total > 0 ? Math.round((conseguidas / data.total) * 100) : 0
+
+    return {
+      conseguidas,
+      faltantes: data.faltantes,
+      total: data.total,
+      porcentaje,
+      completado: data.completado
+    }
+  }
 
   const noticiasМanuales = noticias.filter(n => n.origen === 'manual')
   const felicitaciones = noticias.filter(n => n.origen === 'automatica')
@@ -52,25 +120,46 @@ export default function Dashboard() {
                 <span className="alumno-icon">🎒</span>
               </div>
               <div className="albumes-alumno">
-                {albumes.map(album => (
-                  <Link
-                    key={album.id}
-                    to={`/album/${album.id}/alumno/${alumno.id}`}
-                    className="album-card-link"
-                  >
-                    <div className="album-card">
-                      {album.imagen_portada
-                        ? <img src={album.imagen_portada} alt={album.nombre} className="album-portada" />
-                        : <div className="album-portada-placeholder">🎴</div>
-                      }
-                      <div className="album-card-info">
-                        <h3>{album.nombre}</h3>
-                        <p>{album.cantidad_total} figuritas</p>
+                {albumes.map(album => {
+                  const info = getProgresoInfo(alumno.id, album.id)
+
+                  return (
+                    <Link
+                      key={album.id}
+                      to={`/album/${album.id}/alumno/${alumno.id}`}
+                      className="album-card-link"
+                    >
+                      <div className="album-card">
+                        {album.imagen_portada
+                          ? <img src={album.imagen_portada} alt={album.nombre} className="album-portada" />
+                          : <div className="album-portada-placeholder">🎴</div>
+                        }
+                        <div className="album-card-info">
+                          <h3>{album.nombre}</h3>
+                          {info ? (
+                            <>
+                              <div className="progreso-bar-container">
+                                <div
+                                  className={`progreso-bar-fill ${info.completado ? 'completado' : ''}`}
+                                  style={{ width: `${info.porcentaje}%` }}
+                                />
+                              </div>
+                              <p className={`progreso-texto ${info.completado ? 'completado-texto' : ''}`}>
+                                {info.completado
+                                  ? '🏆 ¡Completado!'
+                                  : `${info.conseguidas}/${info.total} · ${info.porcentaje}%`
+                                }
+                              </p>
+                            </>
+                          ) : (
+                            <p>{album.cantidad_total} figuritas</p>
+                          )}
+                        </div>
+                        <span className="album-card-arrow">→</span>
                       </div>
-                      <span className="album-card-arrow">→</span>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  )
+                })}
               </div>
             </div>
           ))}
