@@ -92,7 +92,7 @@ export default function Dashboard() {
     }
   }
 
-  const noticiasМanuales = noticias.filter(n => n.origen === 'manual')
+  const noticiasManuales = noticias.filter(n => n.origen === 'manual')
   const felicitaciones = noticias.filter(n => n.origen === 'automatica')
 
   return (
@@ -174,7 +174,11 @@ export default function Dashboard() {
               <div key={n.id} className="feed-noticia-card felicitacion-card">
                 <div className="feed-noticia-body">
                   <h3>{n.titulo}</h3>
-                  {n.resumen && <p>{n.resumen}</p>}
+                  {n.contenido ? (
+                    <p>{n.contenido}</p>
+                  ) : n.resumen ? (
+                    <p>{n.resumen}</p>
+                  ) : null}
                   {n.fecha_publicacion && (
                     <span className="feed-noticia-fecha">
                       {new Date(n.fecha_publicacion).toLocaleDateString('es-AR')}
@@ -187,17 +191,21 @@ export default function Dashboard() {
         </section>
       )}
 
-      {noticiasМanuales.length > 0 && (
+      {noticiasManuales.length > 0 && (
         <section className="noticias" style={{ marginTop: 40 }}>
           <h2>📰 Novedades</h2>
           <div className="feed-noticias">
-            {noticiasМanuales.map(n => (
+            {noticiasManuales.map(n => (
               <div key={n.id} className={`feed-noticia-card ${n.destacada ? 'destacada' : ''}`}>
                 {n.imagen && <img src={n.imagen} alt={n.titulo} className="feed-noticia-img" />}
                 <div className="feed-noticia-body">
                   {n.destacada && <span className="feed-destacada-badge">⭐ Destacada</span>}
                   <h3>{n.titulo}</h3>
-                  {n.resumen && <p>{n.resumen}</p>}
+                  {n.contenido ? (
+                    <p>{n.contenido}</p>
+                  ) : n.resumen ? (
+                    <p>{n.resumen}</p>
+                  ) : null}
                   {n.fecha_publicacion && (
                     <span className="feed-noticia-fecha">
                       {new Date(n.fecha_publicacion).toLocaleDateString('es-AR')}
