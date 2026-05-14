@@ -36,7 +36,8 @@ export default function Dashboard() {
         supabase
           .from('figurita_alumno')
           .select('id_alumno, id_album, estado')
-          .in('id_alumno', alumnoIds),
+          .in('id_alumno', alumnoIds)
+          .limit(10000),
         supabase
           .from('album_alumno')
           .select('id_alumno, id_album, estado')
