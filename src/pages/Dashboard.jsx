@@ -208,7 +208,7 @@ export default function Dashboard() {
         <section className="noticias" style={{ marginTop: 40 }}>
           <h2>📰 Novedades</h2>
           <div className="feed-noticias">
-            {noticiasМануales.map(n => (
+            {noticiasМаnuales.map(n => (
               <div key={n.id} className={`feed-noticia-card ${n.destacada ? 'destacada' : ''}`}>
                 {n.imagen && <img src={n.imagen} alt={n.titulo} className="feed-noticia-img" />}
                 <div className="feed-noticia-body">
