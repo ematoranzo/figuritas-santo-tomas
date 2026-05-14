@@ -48,14 +48,10 @@ export default function Dashboard() {
         mapaEstadoAlbum[`${aa.id_alumno}-${aa.id_album}`] = aa.estado
       })
 
-      // Contar faltantes Y total de figuritas cargadas por alumno/álbum
       const conteoFaltantes = {}
-      const conteoTotal = {}
       figuritasData?.forEach(f => {
         const key = `${f.id_alumno}-${f.id_album}`
-        if (!conteoTotal[key]) conteoTotal[key] = 0
         if (!conteoFaltantes[key]) conteoFaltantes[key] = 0
-        conteoTotal[key]++
         if (f.estado === 'faltante') conteoFaltantes[key]++
       })
 
@@ -64,22 +60,14 @@ export default function Dashboard() {
         alumnos.forEach(alumno => {
           const key = `${alumno.id}-${album.id}`
           const faltantes = conteoFaltantes[key] || 0
-          const totalCargadas = conteoTotal[key] || 0
           const estadoAlbum = mapaEstadoAlbum[key] || null
-          const esAlfanumerico = album.tipo_numeracion === 'alfanumerica'
-
-          // Para alfanuméricos usamos el total del catálogo (cantidad_total)
-          // Para numéricos también usamos cantidad_total
-          // En ambos casos cantidad_total es la fuente de verdad
           const total = album.cantidad_total
 
           mapaProgreso[key] = {
             faltantes,
-            totalCargadas,
             total,
             completado: estadoAlbum === 'completado',
-            iniciado: estadoAlbum !== null,
-            esAlfanumerico
+            iniciado: estadoAlbum !== null
           }
         })
       })
@@ -93,8 +81,6 @@ export default function Dashboard() {
     const data = progreso[key]
     if (!data || !data.iniciado) return null
 
-    // Conseguidas = total - faltantes
-    // Funciona para ambos tipos: numérico y alfanumérico
     const conseguidas = data.total - data.faltantes
     const porcentaje = data.total > 0
       ? Math.round((conseguidas / data.total) * 100)
@@ -109,7 +95,7 @@ export default function Dashboard() {
     }
   }
 
-  const noticiasМanuales = noticias.filter(n => n.origen === 'manual')
+  const noticiasManuales = noticias.filter(n => n.origen === 'manual')
   const felicitaciones = noticias.filter(n => n.origen === 'automatica')
 
   return (
@@ -204,11 +190,11 @@ export default function Dashboard() {
         </section>
       )}
 
-      {noticiasМanuales.length > 0 && (
+      {noticiasManuales.length > 0 && (
         <section className="noticias" style={{ marginTop: 40 }}>
           <h2>📰 Novedades</h2>
           <div className="feed-noticias">
-            {noticiasМаnuales.map(n => (
+            {noticiasManuales.map(n => (
               <div key={n.id} className={`feed-noticia-card ${n.destacada ? 'destacada' : ''}`}>
                 {n.imagen && <img src={n.imagen} alt={n.titulo} className="feed-noticia-img" />}
                 <div className="feed-noticia-body">
