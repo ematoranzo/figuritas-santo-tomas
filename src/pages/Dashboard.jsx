@@ -43,30 +43,43 @@ export default function Dashboard() {
           .in('id_alumno', alumnoIds)
       ])
 
-      const mapaProgreso = {}
       const mapaEstadoAlbum = {}
-
       albumAlumnoData?.forEach(aa => {
         mapaEstadoAlbum[`${aa.id_alumno}-${aa.id_album}`] = aa.estado
       })
 
+      // Contar faltantes Y total de figuritas cargadas por alumno/álbum
       const conteoFaltantes = {}
+      const conteoTotal = {}
       figuritasData?.forEach(f => {
         const key = `${f.id_alumno}-${f.id_album}`
+        if (!conteoTotal[key]) conteoTotal[key] = 0
         if (!conteoFaltantes[key]) conteoFaltantes[key] = 0
+        conteoTotal[key]++
         if (f.estado === 'faltante') conteoFaltantes[key]++
       })
 
+      const mapaProgreso = {}
       albumesData.forEach(album => {
         alumnos.forEach(alumno => {
           const key = `${alumno.id}-${album.id}`
           const faltantes = conteoFaltantes[key] || 0
+          const totalCargadas = conteoTotal[key] || 0
           const estadoAlbum = mapaEstadoAlbum[key] || null
+          const esAlfanumerico = album.tipo_numeracion === 'alfanumerica'
+
+          // Para alfanuméricos usamos el total del catálogo (cantidad_total)
+          // Para numéricos también usamos cantidad_total
+          // En ambos casos cantidad_total es la fuente de verdad
+          const total = album.cantidad_total
+
           mapaProgreso[key] = {
             faltantes,
-            total: album.cantidad_total,
+            totalCargadas,
+            total,
             completado: estadoAlbum === 'completado',
-            iniciado: estadoAlbum !== null
+            iniciado: estadoAlbum !== null,
+            esAlfanumerico
           }
         })
       })
@@ -80,14 +93,18 @@ export default function Dashboard() {
     const data = progreso[key]
     if (!data || !data.iniciado) return null
 
+    // Conseguidas = total - faltantes
+    // Funciona para ambos tipos: numérico y alfanumérico
     const conseguidas = data.total - data.faltantes
-    const porcentaje = data.total > 0 ? Math.round((conseguidas / data.total) * 100) : 0
+    const porcentaje = data.total > 0
+      ? Math.round((conseguidas / data.total) * 100)
+      : 0
 
     return {
-      conseguidas,
+      conseguidas: Math.max(0, conseguidas),
       faltantes: data.faltantes,
       total: data.total,
-      porcentaje,
+      porcentaje: Math.max(0, porcentaje),
       completado: data.completado
     }
   }
@@ -191,7 +208,7 @@ export default function Dashboard() {
         <section className="noticias" style={{ marginTop: 40 }}>
           <h2>📰 Novedades</h2>
           <div className="feed-noticias">
-            {noticiasМanuales.map(n => (
+            {noticiasМануales.map(n => (
               <div key={n.id} className={`feed-noticia-card ${n.destacada ? 'destacada' : ''}`}>
                 {n.imagen && <img src={n.imagen} alt={n.titulo} className="feed-noticia-img" />}
                 <div className="feed-noticia-body">
