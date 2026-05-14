@@ -5,38 +5,23 @@ import { supabase } from '../lib/supabase'
 export default function Home() {
   const [noticias, setNoticias] = useState([])
   const [config, setConfig] = useState({})
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const cargarNoticias = async () => {
-      setLoading(true)
-      
-      // Cargar noticias visibles sin login (manuales o automáticas que el admin quiera mostrar)
-      const { data } = await supabase
-        .from('noticia')
-        .select('*')
-        .eq('estado', 'publicada')
-        .eq('visible_sin_login', true)  // ← NUEVO: solo noticias visibles sin login
-        .order('destacada', { ascending: false })  // Primero las destacadas
-        .order('fecha_publicacion', { ascending: false })
-        .limit(10)
-      
-      setNoticias(data || [])
-      setLoading(false)
-    }
+    supabase.from('noticia')
+      .select('*')
+      .eq('estado', 'publicada')
+      .eq('origen', 'manual')
+      .order('fecha_publicacion', { ascending: false })
+      .limit(10)
+      .then(({ data }) => setNoticias(data || []))
 
-    const cargarConfig = async () => {
-      const { data } = await supabase
-        .from('config_sitio')
-        .select('clave, valor')
-      
-      const cfg = {}
-      data?.forEach(r => cfg[r.clave] = r.valor)
-      setConfig(cfg)
-    }
-
-    cargarNoticias()
-    cargarConfig()
+    supabase.from('config_sitio')
+      .select('clave, valor')
+      .then(({ data }) => {
+        const cfg = {}
+        data?.forEach(r => cfg[r.clave] = r.valor)
+        setConfig(cfg)
+      })
   }, [])
 
   return (
@@ -82,14 +67,8 @@ export default function Home() {
                 {n.imagen && <img src={n.imagen} alt={n.titulo} className="feed-noticia-img" />}
                 <div className="feed-noticia-body">
                   {n.destacada && <span className="feed-destacada-badge">⭐ Destacada</span>}
-                  {n.origen === 'automatica' && <span className="feed-automatica-badge">🤖 Automática</span>}
                   <h3>{n.titulo}</h3>
-                  {/* Mostrar contenido si existe, sino el resumen */}
-                  {n.contenido ? (
-                    <p>{n.contenido}</p>
-                  ) : n.resumen ? (
-                    <p>{n.resumen}</p>
-                  ) : null}
+                  {n.resumen && <p>{n.resumen}</p>}
                   {n.fecha_publicacion && (
                     <span className="feed-noticia-fecha">
                       {new Date(n.fecha_publicacion).toLocaleDateString('es-AR')}
@@ -98,14 +77,6 @@ export default function Home() {
                 </div>
               </div>
             ))}
-          </div>
-        </section>
-      )}
-
-      {!loading && noticias.length === 0 && (
-        <section className="noticias">
-          <div className="dashboard-empty">
-            <p>No hay novedades en este momento.</p>
           </div>
         </section>
       )}

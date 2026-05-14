@@ -24,6 +24,7 @@ export default function AlbumDetalle() {
   const [completando, setCompletando] = useState(false)
   const [reactivando, setReactivando] = useState(false)
   const [iniciando, setIniciando] = useState(false)
+  const [catalogo, setCatalogo] = useState([])
 
   useEffect(() => { cargarDatos() }, [albumId, alumnoId])
 
@@ -35,9 +36,20 @@ export default function AlbumDetalle() {
     ])
     setAlbum(albumData)
     setAlumno(alumnoData)
+
     const mapa = {}
     figuritasData?.forEach(f => { mapa[f.numero_figurita] = f.estado })
     setFiguritas(mapa)
+
+    // Si el álbum es alfanumérico, cargar el catálogo
+    if (albumData?.tipo_numeracion === 'alfanumerica') {
+      const { data: catalogoData } = await supabase
+        .from('figurita_catalogo')
+        .select('codigo, descripcion, equipo, orden')
+        .eq('id_album', albumId)
+        .order('orden', { ascending: true })
+      setCatalogo(catalogoData || [])
+    }
 
     const { data: aaData } = await supabase
       .from('album_alumno')
@@ -56,7 +68,7 @@ export default function AlbumDetalle() {
 
       if (!figuritasData || figuritasData.length === 0) {
         setIniciando(true)
-        await cargarTodasComoFaltantes(albumData.cantidad_total)
+        await cargarTodasComoFaltantes(albumData)
         setIniciando(false)
       }
     } else {
@@ -64,11 +76,11 @@ export default function AlbumDetalle() {
     }
   }
 
-  async function cargarTodasComoFaltantes(cantidadTotal) {
+  async function cargarTodasComoFaltantes(albumData) {
     await supabase.rpc('inicializar_figuritas_album', {
       p_alumno_id: alumnoId,
       p_album_id: albumId,
-      p_cantidad_total: cantidadTotal
+      p_cantidad_total: albumData.cantidad_total
     })
 
     const { data: figuritasData } = await supabase
@@ -83,33 +95,32 @@ export default function AlbumDetalle() {
     setModo('faltante')
   }
 
-  function toggleFigurita(n) {
-    const estadoActual = figuritas[n]
+  function toggleFigurita(codigo) {
+    const estadoActual = figuritas[codigo]
     const estadoOpuesto = modo === 'faltante' ? 'repetida' : 'faltante'
 
     if (yaCompletado && modo === 'faltante') {
       toast.error('El álbum está completado. Solo podés marcar repetidas.')
       return
     }
-
     if (estadoActual === estadoOpuesto) {
-      toast.error(`La figurita ${n} ya está como ${estadoOpuesto}`)
+      toast.error(`La figurita ${codigo} ya está como ${estadoOpuesto}`)
       return
     }
     const nuevoEstado = estadoActual === modo ? null : modo
     const nuevasFiguritas = { ...figuritas }
-    if (nuevoEstado === null) delete nuevasFiguritas[n]
-    else nuevasFiguritas[n] = nuevoEstado
+    if (nuevoEstado === null) delete nuevasFiguritas[codigo]
+    else nuevasFiguritas[codigo] = nuevoEstado
     setFiguritas(nuevasFiguritas)
-    setCambiosPendientes(prev => ({ ...prev, [n]: nuevoEstado }))
+    setCambiosPendientes(prev => ({ ...prev, [codigo]: nuevoEstado }))
   }
 
-  function agregarLista(numeros) {
+  function agregarLista(codigos) {
     const nuevasFiguritas = { ...figuritas }
     const nuevosCambios = { ...cambiosPendientes }
-    numeros.forEach(n => {
-      nuevasFiguritas[n] = modo
-      nuevosCambios[n] = modo
+    codigos.forEach(c => {
+      nuevasFiguritas[c] = modo
+      nuevosCambios[c] = modo
     })
     setFiguritas(nuevasFiguritas)
     setCambiosPendientes(nuevosCambios)
@@ -122,20 +133,19 @@ export default function AlbumDetalle() {
     }
     setGuardando(true)
     try {
-      for (const [num, estado] of Object.entries(cambiosPendientes)) {
-        const n = parseInt(num)
+      for (const [codigo, estado] of Object.entries(cambiosPendientes)) {
         if (estado === null) {
           await supabase.from('figurita_alumno')
             .delete()
             .eq('id_alumno', alumnoId)
             .eq('id_album', albumId)
-            .eq('numero_figurita', n)
+            .eq('numero_figurita', codigo)
         } else {
           await supabase.from('figurita_alumno')
             .upsert({
               id_alumno: alumnoId,
               id_album: albumId,
-              numero_figurita: n,
+              numero_figurita: codigo,
               estado,
               cantidad: 1,
               fecha_actualizacion: new Date().toISOString()
@@ -217,6 +227,8 @@ export default function AlbumDetalle() {
   if (!album || !alumno) return <div className="loading">Cargando...</div>
   if (iniciando) return <div className="loading">Preparando álbum... ⏳</div>
 
+  const esAlfanumerico = album.tipo_numeracion === 'alfanumerica'
+  const totalReal = esAlfanumerico ? catalogo.length : album.cantidad_total
   const faltantes = Object.values(figuritas).filter(e => e === 'faltante').length
   const repetidas = Object.values(figuritas).filter(e => e === 'repetida').length
   const tieneCambios = Object.keys(cambiosPendientes).length > 0
@@ -237,7 +249,7 @@ export default function AlbumDetalle() {
 
       <div className="album-resumen">
         <div className="resumen-item">
-          <span className="resumen-num">{album.cantidad_total}</span>
+          <span className="resumen-num">{totalReal}</span>
           <span className="resumen-label">Total</span>
         </div>
         <div className="resumen-item faltante-color">
@@ -249,7 +261,7 @@ export default function AlbumDetalle() {
           <span className="resumen-label">Repetidas</span>
         </div>
         <div className="resumen-item">
-          <span className="resumen-num">{album.cantidad_total - faltantes - repetidas}</span>
+          <span className="resumen-num">{totalReal - faltantes - repetidas}</span>
           <span className="resumen-label">Sin marcar</span>
         </div>
       </div>
@@ -283,17 +295,21 @@ export default function AlbumDetalle() {
       </div>
 
       <PanelVisual
-        total={album.cantidad_total}
+        total={totalReal}
         figuritas={figuritas}
         modo={modo}
         onToggle={toggleFigurita}
+        tipoNumeracion={album.tipo_numeracion || 'numerica'}
+        catalogo={catalogo}
       />
 
       <CargaManual
-        total={album.cantidad_total}
+        total={totalReal}
         figuritas={figuritas}
         modo={modo}
         onAgregar={agregarLista}
+        tipoNumeracion={album.tipo_numeracion || 'numerica'}
+        catalogo={catalogo}
       />
 
       <div className="album-acciones">
@@ -313,7 +329,7 @@ export default function AlbumDetalle() {
           {guardando ? 'Guardando...' : tieneCambios ? `💾 Guardar (${Object.keys(cambiosPendientes).length})` : '✓ Guardado'}
         </button>
 
-        {!yaCompletado && faltantes === 0 && Object.keys(figuritas).length > 0 && (
+        {!yaCompletado && faltantes === 0 && Object.keys(figuritas).length > 0 && !tieneCambios && (
           <button
             onClick={marcarCompletado}
             disabled={completando}
@@ -349,7 +365,7 @@ export default function AlbumDetalle() {
           alumnoId={alumnoId}
           albumId={albumId}
           albumNombre={album.nombre}
-          cantidadTotal={album.cantidad_total}
+          cantidadTotal={totalReal}
           onImportado={cargarDatos}
           onCerrar={() => setMostrarImportar(false)}
         />
