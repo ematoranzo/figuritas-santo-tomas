@@ -105,14 +105,15 @@ export default function Coincidencias() {
       .eq('id_album', albumId)
       .eq('estado', 'repetida')
 
-    const misRepetidasNums = (misRepetidas || []).map(f => f.numero_figurita)
+    // Importante: mantener como STRING para comparar con TEXT alfanumérico
+    const misRepetidasNums = (misRepetidas || []).map(f => String(f.numero_figurita))
 
     const resultadosFinales = []
 
     for (const alumnoOtro of alumnosAprobados) {
       const figuritasQueTiene = repetidas
         .filter(r => r.id_alumno === alumnoOtro.id)
-        .map(r => r.numero_figurita)
+        .map(r => String(r.numero_figurita))
 
       const { data: susFaltantes } = await supabase
         .rpc('buscar_faltantes_alumno', {
@@ -120,7 +121,7 @@ export default function Coincidencias() {
           p_album_id: albumId
         })
 
-      const susFaltantesNums = (susFaltantes || []).map(f => f.numero_figurita)
+      const susFaltantesNums = (susFaltantes || []).map(f => String(f.numero_figurita))
       const figuritasQueTeFantanYYoTengo = susFaltantesNums.filter(n => misRepetidasNums.includes(n))
 
       resultadosFinales.push({
@@ -171,8 +172,24 @@ export default function Coincidencias() {
             nombreFamiliaOrigen: `${familia.nombre_adulto} ${familia.apellido_adulto}`,
             nombreAlumnoDestino: `${resultado.alumno.nombre} ${resultado.alumno.apellido}`,
             nombreAlbum: album.nombre,
-            figuritasQueMeFaltanYVosTenes: resultado.figuritasQueTiene.sort((a, b) => a - b),
-            figuritasQueTeFantanYYoTengo: resultado.figuritasQueTeFantanYYoTengo.sort((a, b) => a - b),
+            figuritasQueMeFaltanYVosTenes: resultado.figuritasQueTiene.sort((a, b) => {
+              // Ordenar alfanumérico: primero números, luego letras
+              const aNum = !isNaN(a)
+              const bNum = !isNaN(b)
+              if (aNum && bNum) return parseInt(a) - parseInt(b)
+              if (aNum) return -1
+              if (bNum) return 1
+              return a.localeCompare(b)
+            }),
+            figuritasQueTeFantanYYoTengo: resultado.figuritasQueTeFantanYYoTengo.sort((a, b) => {
+              // Mismo ordenamiento alfanumérico
+              const aNum = !isNaN(a)
+              const bNum = !isNaN(b)
+              if (aNum && bNum) return parseInt(a) - parseInt(b)
+              if (aNum) return -1
+              if (bNum) return 1
+              return a.localeCompare(b)
+            }),
             idFamiliaDestino: resultado.alumno.familia.id,
             idAlbum: albumId
           })
