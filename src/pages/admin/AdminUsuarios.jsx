@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { enviarEmailAprobacion } from '../../emailService'
 import toast from 'react-hot-toast'
 
 const ESTADOS = ['todos', 'pendiente', 'aprobado', 'rechazado', 'inactivo', 'baja']
@@ -27,20 +28,6 @@ export default function AdminUsuarios() {
     setCargando(false)
   }
 
-  async function enviarEmailAprobacion(familia) {
-    try {
-      await supabase.functions.invoke('enviar-email', {
-        body: {
-          tipo: 'aprobacion',
-          emailDestino: familia.email_adulto,
-          nombreAdulto: `${familia.nombre_adulto} ${familia.apellido_adulto}`
-        }
-      })
-    } catch (err) {
-      console.error('Error enviando email de aprobación:', err)
-    }
-  }
-
   async function cambiarEstado(id, nuevoEstado) {
     const familia = familias.find(f => f.id === id)
     const estadoAnterior = familia?.estado
@@ -55,7 +42,16 @@ export default function AdminUsuarios() {
 
       // Enviar email si se aprueba (desde pendiente, rechazado o reactivación)
       if (nuevoEstado === 'aprobado' && familia) {
-        enviarEmailAprobacion(familia)
+        try {
+          await enviarEmailAprobacion(
+            familia.email_adulto,
+            `${familia.nombre_adulto} ${familia.apellido_adulto}`
+          )
+          console.log('✅ Email de aprobación enviado correctamente')
+        } catch (emailError) {
+          console.warn('⚠️ Familia aprobada pero error al enviar email:', emailError.message)
+          // No bloqueamos, la aprobación ya se procesó
+        }
       }
 
       cargarFamilias()
@@ -98,44 +94,74 @@ export default function AdminUsuarios() {
       {cargando ? (
         <div className="admin-loading">Cargando...</div>
       ) : filtradas.length === 0 ? (
-        <div className="admin-empty">No hay familias en este estado.</div>
+        <div className="admin-empty">No hay familias</div>
       ) : (
         <div className="familias-lista">
-          {filtradas.map(f => (
-            <div key={f.id} className="familia-admin-card">
+          {filtradas.map(familia => (
+            <div key={familia.id} className="familia-admin-card">
               <div className="familia-admin-header">
                 <div>
-                  <h3>{f.apellido_adulto}, {f.nombre_adulto}</h3>
-                  <p>{f.email_adulto}</p>
+                  <h3>{familia.nombre_adulto} {familia.apellido_adulto}</h3>
+                  <p>{familia.email_adulto}</p>
                 </div>
-                <span className="estado-badge" style={{ background: COLORES[f.estado] }}>
-                  {f.estado}
-                </span>
-              </div>
-
-              <div className="familia-alumnos">
-                {f.alumnos?.map((a, i) => (
-                  <span key={i} className="alumno-chip">
-                    🎒 {a.nombre} {a.apellido}
-                    {a.grado_sala && ` · ${a.grado_sala.descripcion}`}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                  <span style={{
+                    background: COLORES[familia.estado],
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '.85rem',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {familia.estado}
                   </span>
-                ))}
+                </div>
               </div>
 
-              <div className="acciones">
-                {f.estado === 'pendiente' && <>
-                  <button onClick={() => cambiarEstado(f.id, 'aprobado')} className="btn-accion btn-ok">✓ Aprobar</button>
-                  <button onClick={() => cambiarEstado(f.id, 'rechazado')} className="btn-accion btn-danger">✗ Rechazar</button>
-                </>}
-                {f.estado === 'aprobado' && f.rol !== 'admin' &&
-                  <button onClick={() => cambiarEstado(f.id, 'inactivo')} className="btn-accion btn-warn">⏸ Inactivar</button>
-                }
-                {f.estado === 'inactivo' &&
-                  <button onClick={() => cambiarEstado(f.id, 'aprobado')} className="btn-accion btn-ok">▶ Reactivar</button>
-                }
-                {f.estado === 'rechazado' &&
-                  <button onClick={() => cambiarEstado(f.id, 'aprobado')} className="btn-accion btn-ok">✓ Aprobar</button>
-                }
+              {familia.alumnos && familia.alumnos.length > 0 && (
+                <div className="familia-alumnos">
+                  {familia.alumnos.map((a, idx) => (
+                    <span key={idx} className="alumno-chip">
+                      {a.nombre} {a.apellido} — {a.grado_sala?.descripcion}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="acciones" style={{ marginTop: '12px' }}>
+                {familia.estado === 'pendiente' && (
+                  <>
+                    <button
+                      className="btn-accion btn-ok"
+                      onClick={() => cambiarEstado(familia.id, 'aprobado')}
+                    >
+                      ✓ Aprobar
+                    </button>
+                    <button
+                      className="btn-accion btn-danger"
+                      onClick={() => cambiarEstado(familia.id, 'rechazado')}
+                    >
+                      ✕ Rechazar
+                    </button>
+                  </>
+                )}
+                {familia.estado === 'aprobado' && (
+                  <button
+                    className="btn-accion btn-warn"
+                    onClick={() => cambiarEstado(familia.id, 'inactivo')}
+                  >
+                    ⊗ Inactivar
+                  </button>
+                )}
+                {familia.estado === 'inactivo' && (
+                  <button
+                    className="btn-accion btn-primary-sm"
+                    onClick={() => cambiarEstado(familia.id, 'aprobado')}
+                  >
+                    ↻ Reactivar
+                  </button>
+                )}
               </div>
             </div>
           ))}

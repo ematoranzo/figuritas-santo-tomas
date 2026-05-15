@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { enviarEmailBienvenida } from '../emailService'
 import toast from 'react-hot-toast'
 
 const ALUMNO_VACIO = { nombre: '', apellido: '', id_grado_sala: '' }
@@ -41,27 +42,6 @@ export default function Registro() {
   function quitarAlumno(idx) {
     if (alumnos.length === 1) { toast.error('Debe haber al menos un alumno'); return }
     setAlumnos(prev => prev.filter((_, i) => i !== idx))
-  }
-
-  async function enviarEmailBienvenida(gradosMap) {
-    try {
-      const alumnosEmail = alumnos.map(a => ({
-        nombre: a.nombre.trim(),
-        apellido: a.apellido.trim(),
-        grado: gradosMap[a.id_grado_sala] || ''
-      }))
-
-      await supabase.functions.invoke('enviar-email', {
-        body: {
-          tipo: 'bienvenida',
-          emailDestino: form.email_adulto.trim(),
-          nombreAdulto: `${form.nombre_adulto.trim()} ${form.apellido_adulto.trim()}`,
-          alumnos: alumnosEmail
-        }
-      })
-    } catch (err) {
-      console.error('Error enviando email de bienvenida:', err)
-    }
   }
 
   async function handleSubmit(e) {
@@ -106,7 +86,24 @@ export default function Registro() {
       grados.forEach(g => { gradosMap[g.id] = g.descripcion })
 
       // Enviar email de bienvenida (no bloqueante)
-      enviarEmailBienvenida(gradosMap)
+      // Si falla, el registro ya fue exitoso, así que no es crítico
+      try {
+        const alumnosEmail = alumnos.map(a => ({
+          nombre: a.nombre.trim(),
+          apellido: a.apellido.trim(),
+          grado: gradosMap[a.id_grado_sala] || ''
+        }))
+
+        await enviarEmailBienvenida(
+          form.email_adulto.trim(),
+          `${form.nombre_adulto.trim()} ${form.apellido_adulto.trim()}`,
+          alumnosEmail
+        )
+        console.log('✅ Email de bienvenida enviado correctamente')
+      } catch (emailError) {
+        console.warn('⚠️ El registro fue exitoso pero hubo error al enviar email de bienvenida:', emailError.message)
+        // No bloqueamos, el registro fue exitoso
+      }
 
       toast.success('¡Registro enviado! Revisá tu email. La administradora revisará tu solicitud.')
       navigate('/')
