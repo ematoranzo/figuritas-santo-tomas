@@ -13,7 +13,6 @@ export default function Coincidencias() {
   const [alumno, setAlumno] = useState(null)
   const [resultados, setResultados] = useState([])
   const [cargando, setCargando] = useState(true)
-  const [emailsEnviados, setEmailsEnviados] = useState(0)
 
   useEffect(() => { cargarDatos() }, [albumId, alumnoId])
 
@@ -139,94 +138,11 @@ export default function Coincidencias() {
       resultadosFinales.sort((a, b) => b.totalCoincidencias - a.totalCoincidencias)
       setResultados(resultadosFinales)
 
-      // Contar emails enviados hoy
-      const hoy = new Date()
-      hoy.setHours(0, 0, 0, 0)
-      const { count } = await supabase
-        .from('envio_mail')
-        .select('id', { count: 'exact' })
-        .eq('id_familia_origen', familia.id)
-        .gte('created_at', hoy.toISOString())
-      setEmailsEnviados(count || 0)
-
     } catch (err) {
       console.error('❌ Error general:', err)
       toast.error('Error al cargar coincidencias')
     } finally {
       setCargando(false)
-    }
-  }
-
-  async function enviarEmail(resultado) {
-    if (emailsEnviados >= 5) {
-      toast.error('Alcanzaste el límite de 5 emails por día')
-      return
-    }
-
-    try {
-      // Obtener sesión actual
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError || !session) {
-        console.error('Error getting session:', sessionError)
-        toast.error('Sesión expirada, por favor ingresá nuevamente')
-        return
-      }
-
-      console.log('📧 Enviando email...')
-
-      const payload = {
-        tipo: 'coincidencia',
-        emailDestino: resultado.alumno.familia.email_adulto,
-        nombreAdultoDestino: `${resultado.alumno.familia.nombre_adulto} ${resultado.alumno.familia.apellido_adulto}`,
-        nombreAlumnoOrigen: `${alumno.nombre} ${alumno.apellido}`,
-        gradoOrigen: alumno.grado_sala?.descripcion || 'No especificado',
-        emailAdultoOrigen: familia.email_adulto,
-        nombreFamiliaOrigen: `${familia.nombre_adulto} ${familia.apellido_adulto}`,
-        nombreAlumnoDestino: `${resultado.alumno.nombre} ${resultado.alumno.apellido}`,
-        nombreAlbum: album.nombre,
-        figuritasQueMeFaltanYVosTenes: resultado.figuritasQueTiene.sort((a, b) => {
-          const aNum = !isNaN(a)
-          const bNum = !isNaN(b)
-          if (aNum && bNum) return parseInt(a) - parseInt(b)
-          if (aNum) return -1
-          if (bNum) return 1
-          return a.localeCompare(b)
-        }),
-        figuritasQueTeFantanYYoTengo: resultado.figuritasQueTeFantanYYoTengo.sort((a, b) => {
-          const aNum = !isNaN(a)
-          const bNum = !isNaN(b)
-          if (aNum && bNum) return parseInt(a) - parseInt(b)
-          if (aNum) return -1
-          if (bNum) return 1
-          return a.localeCompare(b)
-        }),
-        idFamiliaOrigen: familia.id,
-        idFamiliaDestino: resultado.alumno.id_familia,
-        idAlbum: albumId
-      }
-
-      console.log('Payload:', payload)
-
-      // Usar supabase.functions.invoke()
-      const { data, error } = await supabase.functions.invoke('enviar-email', {
-        body: payload
-      })
-
-      console.log('Response data:', data)
-      console.log('Response error:', error)
-
-      if (error) {
-        throw new Error(error.message || 'Error en la Edge Function')
-      }
-
-      toast.success('¡Email enviado!')
-      setEmailsEnviados(prev => prev + 1)
-      console.log('✅ Email enviado exitosamente')
-
-    } catch (err) {
-      console.error('❌ Error en enviarEmail:', err)
-      toast.error(err.message || 'Error al enviar email')
     }
   }
 
@@ -240,11 +156,6 @@ export default function Coincidencias() {
           <h1>🔍 Coincidencias</h1>
           <p>{alumno?.nombre} {alumno?.apellido} · {album?.nombre}</p>
         </div>
-        <div className="emails-contador">
-          <span className={emailsEnviados >= 5 ? 'limite-alcanzado' : ''}>
-            📧 {emailsEnviados}/5 emails hoy
-          </span>
-        </div>
       </div>
 
       {resultados.length === 0 ? (
@@ -257,7 +168,7 @@ export default function Coincidencias() {
       ) : (
         <>
           <p className="coincidencias-intro">
-            Se encontraron <strong>{resultados.length} alumnos</strong> con figuritas para intercambiar, ordenados por mayor cantidad de coincidencias.
+            Se encontraron <strong>{resultados.length} alumno{resultados.length !== 1 ? 's' : ''}</strong> con figuritas para intercambiar, ordenados por mayor cantidad de coincidencias.
           </p>
           <div className="resultados-lista">
             {resultados.map((r, i) => (
@@ -265,8 +176,6 @@ export default function Coincidencias() {
                 key={r.alumno.id}
                 resultado={r}
                 posicion={i + 1}
-                onEnviarEmail={() => enviarEmail(r)}
-                emailsAgotados={emailsEnviados >= 5}
               />
             ))}
           </div>
