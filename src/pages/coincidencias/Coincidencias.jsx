@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { enviarEmailCoincidencia } from '../../emailService'
 import toast from 'react-hot-toast'
 import ResultadoCoincidencia from './ResultadoCoincidencia'
 
@@ -29,6 +28,7 @@ export default function Coincidencias() {
       setAlbum(albumData)
       setAlumno(alumnoData)
 
+      // Obtener mis faltantes
       const { data: misFaltantes } = await supabase
         .from('figurita_alumno')
         .select('numero_figurita')
@@ -36,63 +36,54 @@ export default function Coincidencias() {
         .eq('id_album', albumId)
         .eq('estado', 'faltante')
 
-      console.log('✅ Mis faltantes cargados:', misFaltantes?.length || 0)
+      console.log('✅ Mis faltantes:', misFaltantes?.length || 0)
 
       if (!misFaltantes || misFaltantes.length === 0) {
-        console.log('⚠️ No hay faltantes para este alumno')
         setCargando(false)
         setResultados([])
         return
       }
 
-      // ✅ Buscar coincidencias
-      console.log('🔍 Buscando coincidencias...')
-      const { data: repetidas, error: errorRepetidas } = await supabase
+      // Buscar coincidencias (function SQL SECURITY DEFINER)
+      const { data: repetidas, error } = await supabase
         .rpc('buscar_coincidencias', {
           p_alumno_id: alumnoId,
           p_album_id: albumId
         })
 
-      if (errorRepetidas) {
-        console.error('❌ Error en buscar_coincidencias:', errorRepetidas)
-        toast.error('Error al buscar coincidencias')
-        setCargando(false)
-        setResultados([])
-        return
-      }
+      console.log('✅ Repetidas encontradas:', repetidas?.length || 0)
+      console.log('Error RPC:', error)
 
-      console.log('✅ Coincidencias encontradas:', repetidas?.length || 0)
-
-      if (!repetidas || repetidas.length === 0) {
+      if (error || !repetidas || repetidas.length === 0) {
         setCargando(false)
         setResultados([])
         return
       }
 
       const idsAlumnos = [...new Set(repetidas.map(r => r.id_alumno))]
+      console.log('✅ Alumnos únicos:', idsAlumnos.length)
 
+      // Obtener datos de alumnos
       const { data: alumnosData } = await supabase
         .from('alumno')
         .select('id, nombre, apellido, grado_sala(descripcion), id_familia')
         .in('id', idsAlumnos)
 
-      console.log('✅ Alumnos con coincidencias:', alumnosData?.length || 0)
-
-      if (!alumnosData) {
+      if (!alumnosData || alumnosData.length === 0) {
         setCargando(false)
         setResultados([])
         return
       }
 
+      // Obtener datos de familias aprobadas
       const idsFamilias = [...new Set(alumnosData.map(a => a.id_familia))]
-
       const { data: familiasData } = await supabase
         .from('familia')
         .select('id, nombre_adulto, apellido_adulto, email_adulto, estado')
         .in('id', idsFamilias)
         .eq('estado', 'aprobado')
 
-      console.log('✅ Familias aprobadas encontradas:', familiasData?.length || 0)
+      console.log('✅ Familias aprobadas:', familiasData?.length || 0)
 
       if (!familiasData || familiasData.length === 0) {
         setCargando(false)
@@ -107,6 +98,7 @@ export default function Coincidencias() {
 
       const alumnosAprobados = alumnosConFamilia.filter(a => a.familia !== null)
 
+      // Obtener mis repetidas
       const { data: misRepetidas } = await supabase
         .from('figurita_alumno')
         .select('numero_figurita')
@@ -114,81 +106,48 @@ export default function Coincidencias() {
         .eq('id_album', albumId)
         .eq('estado', 'repetida')
 
-      // Importante: mantener como STRING para comparar
       const misRepetidasNums = (misRepetidas || []).map(f => String(f.numero_figurita))
 
+      // Obtener TODAS las faltantes de otros alumnos en una sola query
+      const { data: faltantesOtros } = await supabase
+        .from('figurita_alumno')
+        .select('id_alumno, numero_figurita')
+        .eq('id_album', albumId)
+        .eq('estado', 'faltante')
+        .in('id_alumno', alumnosAprobados.map(a => a.id))
+
+      console.log('✅ Faltantes de otros:', faltantesOtros?.length || 0)
+
+      // Armar resultados finales
       const resultadosFinales = []
 
-      // ✅ MEJOR MANEJO DEL LOOP CON TRY-CATCH
       for (const alumnoOtro of alumnosAprobados) {
-        try {
-          // Verificar que los IDs son válidos
-          if (!alumnoOtro.id || !albumId) {
-            console.warn('⚠️ Saltando alumno - IDs inválidos:', { 
-              'alumnoOtro.id': alumnoOtro.id, 
-              'albumId': albumId 
-            })
-            continue
-          }
+        // Figuritas que yo le falta y el otro tiene como repetida
+        const figuritasQueTiene = repetidas
+          .filter(r => r.id_alumno === alumnoOtro.id)
+          .map(r => String(r.numero_figurita))
 
-          const figuritasQueTiene = repetidas
-            .filter(r => r.id_alumno === alumnoOtro.id)
-            .map(r => String(r.numero_figurita))
+        // Figuritas que al otro le faltan y yo tengo como repetida
+        const susFaltantes = (faltantesOtros || [])
+          .filter(f => f.id_alumno === alumnoOtro.id)
+          .map(f => String(f.numero_figurita))
 
-          console.log(`🔍 Llamando buscar_faltantes_alumno para ${alumnoOtro.nombre} ${alumnoOtro.apellido}`, {
-            p_alumno_id: alumnoOtro.id,
-            p_album_id: albumId
-          })
+        const figuritasQueTeFantanYYoTengo = susFaltantes.filter(n => misRepetidasNums.includes(n))
 
-          const { data: susFaltantes, error: errorFaltantes } = await supabase
-            .rpc('buscar_faltantes_alumno', {
-              p_alumno_id: alumnoOtro.id,
-              p_album_id: albumId
-            })
-
-          // ✅ Verificar error en RPC
-          if (errorFaltantes) {
-            console.error('❌ Error en buscar_faltantes_alumno:', {
-              alumno: `${alumnoOtro.nombre} ${alumnoOtro.apellido}`,
-              error: errorFaltantes
-            })
-            continue // Saltar este alumno y continuar con el siguiente
-          }
-
-          // ✅ Verificar que datos no sean null
-          if (!susFaltantes) {
-            console.warn('⚠️ susFaltantes es null para:', alumnoOtro.nombre)
-            continue
-          }
-
-          const susFaltantesNums = (susFaltantes || []).map(f => String(f.numero_figurita))
-          const figuritasQueTeFantanYYoTengo = susFaltantesNums.filter(n => misRepetidasNums.includes(n))
-
-          console.log(`✅ Coincidencias encontradas con ${alumnoOtro.nombre}:`, {
-            'Figuritas que tiene y me faltan': figuritasQueTiene.length,
-            'Figuritas que le faltan y yo tengo': figuritasQueTeFantanYYoTengo.length
-          })
-
+        // Solo agregar si hay coincidencias en al menos una dirección
+        if (figuritasQueTiene.length > 0 || figuritasQueTeFantanYYoTengo.length > 0) {
           resultadosFinales.push({
             alumno: alumnoOtro,
             figuritasQueTiene,
             figuritasQueTeFantanYYoTengo,
             totalCoincidencias: figuritasQueTiene.length + figuritasQueTeFantanYYoTengo.length
           })
-        } catch (err) {
-          console.error('❌ Error inesperado en loop de coincidencias:', {
-            alumno: alumnoOtro?.nombre,
-            error: err.message
-          })
-          // Continuar con el siguiente alumno
-          continue
         }
       }
 
       resultadosFinales.sort((a, b) => b.totalCoincidencias - a.totalCoincidencias)
-      setResultados(resultadosFinales)
-
       console.log('✅ Resultados finales:', resultadosFinales.length)
+      setResultados(resultadosFinales)
 
       // Contar emails enviados hoy
       const hoy = new Date()
@@ -200,10 +159,10 @@ export default function Coincidencias() {
         .gte('created_at', hoy.toISOString())
       setEmailsEnviados(count || 0)
 
-      setCargando(false)
     } catch (err) {
-      console.error('❌ Error general en cargarDatos:', err)
-      toast.error('Error al cargar las coincidencias')
+      console.error('❌ Error general:', err)
+      toast.error('Error al cargar coincidencias')
+    } finally {
       setCargando(false)
     }
   }
@@ -215,42 +174,83 @@ export default function Coincidencias() {
     }
 
     try {
-      console.log('📧 Enviando email de coincidencia a:', resultado.alumno.familia.email_adulto)
+      const { data: { session } } = await supabase.auth.getSession()
       
-      await enviarEmailCoincidencia({
-        emailDestino: resultado.alumno.familia.email_adulto,
-        nombreAdultoDestino: `${resultado.alumno.familia.nombre_adulto} ${resultado.alumno.familia.apellido_adulto}`,
-        nombreAlumnoOrigen: `${alumno.nombre} ${alumno.apellido}`,
-        gradoOrigen: alumno.grado_sala?.descripcion,
-        emailAdultoOrigen: familia.email_adulto,
-        nombreFamiliaOrigen: `${familia.nombre_adulto} ${familia.apellido_adulto}`,
-        nombreAlumnoDestino: `${resultado.alumno.nombre} ${resultado.alumno.apellido}`,
-        nombreAlbum: album.nombre,
-        figuritasQueMeFaltanYVosTenes: resultado.figuritasQueTiene.sort((a, b) => {
-          const aNum = !isNaN(a)
-          const bNum = !isNaN(b)
-          if (aNum && bNum) return parseInt(a) - parseInt(b)
-          if (aNum) return -1
-          if (bNum) return 1
-          return a.localeCompare(b)
-        }),
-        figuritasQueTeFantanYYoTengo: resultado.figuritasQueTeFantanYYoTengo.sort((a, b) => {
-          const aNum = !isNaN(a)
-          const bNum = !isNaN(b)
-          if (aNum && bNum) return parseInt(a) - parseInt(b)
-          if (aNum) return -1
-          if (bNum) return 1
-          return a.localeCompare(b)
-        }),
-        idFamiliaDestino: resultado.alumno.familia.id,
-        idAlbum: albumId,
+      if (!session) {
+        toast.error('Sesión expirada, por favor ingresá nuevamente')
+        return
+      }
+
+      console.log('📧 Enviando email a:', resultado.alumno.familia.email_adulto)
+      console.log('Datos del email:', {
+        alumnoOrigen: `${alumno.nombre} ${alumno.apellido}`,
+        alumnoDestino: `${resultado.alumno.nombre} ${resultado.alumno.apellido}`,
+        album: album.nombre,
+        figuritasQueTiene: resultado.figuritasQueTiene,
+        figuritasQueTeFantan: resultado.figuritasQueTeFantanYYoTengo
       })
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/enviar-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            tipo: 'coincidencia',
+            emailDestino: resultado.alumno.familia.email_adulto,
+            nombreAdultoDestino: `${resultado.alumno.familia.nombre_adulto} ${resultado.alumno.familia.apellido_adulto}`,
+            nombreAlumnoOrigen: `${alumno.nombre} ${alumno.apellido}`,
+            gradoOrigen: alumno.grado_sala?.descripcion || 'No especificado',
+            emailAdultoOrigen: familia.email_adulto,
+            nombreFamiliaOrigen: `${familia.nombre_adulto} ${familia.apellido_adulto}`,
+            nombreAlumnoDestino: `${resultado.alumno.nombre} ${resultado.alumno.apellido}`,
+            nombreAlbum: album.nombre,
+            figuritasQueMeFaltanYVosTenes: resultado.figuritasQueTiene.sort((a, b) => {
+              const aNum = !isNaN(a)
+              const bNum = !isNaN(b)
+              if (aNum && bNum) return parseInt(a) - parseInt(b)
+              if (aNum) return -1
+              if (bNum) return 1
+              return a.localeCompare(b)
+            }),
+            figuritasQueTeFantanYYoTengo: resultado.figuritasQueTeFantanYYoTengo.sort((a, b) => {
+              const aNum = !isNaN(a)
+              const bNum = !isNaN(b)
+              if (aNum && bNum) return parseInt(a) - parseInt(b)
+              if (aNum) return -1
+              if (bNum) return 1
+              return a.localeCompare(b)
+            }),
+            idFamiliaDestino: resultado.alumno.id_familia,
+            idAlbum: albumId
+          })
+        }
+      )
+
+      console.log('Response status:', response.status)
+      console.log('Response ok:', response.ok)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
 
       toast.success('¡Email enviado!')
       setEmailsEnviados(prev => prev + 1)
       console.log('✅ Email enviado exitosamente')
+
     } catch (err) {
-      console.error('❌ Error al enviar email:', err.message)
+      console.error('❌ Error en enviarEmail:', err)
       toast.error(err.message || 'Error al enviar email')
     }
   }
