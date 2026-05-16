@@ -174,7 +174,6 @@ export default function Coincidencias() {
       }
 
       console.log('📧 Enviando email...')
-      console.log('Token:', session.access_token.substring(0, 20) + '...')
 
       const payload = {
         tipo: 'coincidencia',
@@ -202,14 +201,14 @@ export default function Coincidencias() {
           if (bNum) return 1
           return a.localeCompare(b)
         }),
+        idFamiliaOrigen: familia.id,
         idFamiliaDestino: resultado.alumno.id_familia,
         idAlbum: albumId
       }
 
       console.log('Payload:', payload)
 
-      // Usar supabase.functions.invoke() en lugar de fetch directo
-      // Esto maneja el token correctamente
+      // Usar supabase.functions.invoke()
       const { data, error } = await supabase.functions.invoke('enviar-email', {
         body: payload
       })
