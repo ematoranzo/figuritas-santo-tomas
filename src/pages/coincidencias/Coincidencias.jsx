@@ -52,7 +52,6 @@ export default function Coincidencias() {
         })
 
       console.log('✅ Repetidas encontradas:', repetidas?.length || 0)
-      console.log('Error RPC:', error)
 
       if (error || !repetidas || repetidas.length === 0) {
         setCargando(false)
@@ -61,7 +60,6 @@ export default function Coincidencias() {
       }
 
       const idsAlumnos = [...new Set(repetidas.map(r => r.id_alumno))]
-      console.log('✅ Alumnos únicos:', idsAlumnos.length)
 
       // Obtener datos de alumnos
       const { data: alumnosData } = await supabase
@@ -82,8 +80,6 @@ export default function Coincidencias() {
         .select('id, nombre_adulto, apellido_adulto, email_adulto, estado')
         .in('id', idsFamilias)
         .eq('estado', 'aprobado')
-
-      console.log('✅ Familias aprobadas:', familiasData?.length || 0)
 
       if (!familiasData || familiasData.length === 0) {
         setCargando(false)
@@ -116,25 +112,20 @@ export default function Coincidencias() {
         .eq('estado', 'faltante')
         .in('id_alumno', alumnosAprobados.map(a => a.id))
 
-      console.log('✅ Faltantes de otros:', faltantesOtros?.length || 0)
-
       // Armar resultados finales
       const resultadosFinales = []
 
       for (const alumnoOtro of alumnosAprobados) {
-        // Figuritas que yo le falta y el otro tiene como repetida
         const figuritasQueTiene = repetidas
           .filter(r => r.id_alumno === alumnoOtro.id)
           .map(r => String(r.numero_figurita))
 
-        // Figuritas que al otro le faltan y yo tengo como repetida
         const susFaltantes = (faltantesOtros || [])
           .filter(f => f.id_alumno === alumnoOtro.id)
           .map(f => String(f.numero_figurita))
 
         const figuritasQueTeFantanYYoTengo = susFaltantes.filter(n => misRepetidasNums.includes(n))
 
-        // Solo agregar si hay coincidencias en al menos una dirección
         if (figuritasQueTiene.length > 0 || figuritasQueTeFantanYYoTengo.length > 0) {
           resultadosFinales.push({
             alumno: alumnoOtro,
@@ -146,7 +137,6 @@ export default function Coincidencias() {
       }
 
       resultadosFinales.sort((a, b) => b.totalCoincidencias - a.totalCoincidencias)
-      console.log('✅ Resultados finales:', resultadosFinales.length)
       setResultados(resultadosFinales)
 
       // Contar emails enviados hoy
@@ -174,75 +164,61 @@ export default function Coincidencias() {
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      // Obtener sesión actual
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
-      if (!session) {
+      if (sessionError || !session) {
+        console.error('Error getting session:', sessionError)
         toast.error('Sesión expirada, por favor ingresá nuevamente')
         return
       }
 
-      console.log('📧 Enviando email a:', resultado.alumno.familia.email_adulto)
-      console.log('Datos del email:', {
-        alumnoOrigen: `${alumno.nombre} ${alumno.apellido}`,
-        alumnoDestino: `${resultado.alumno.nombre} ${resultado.alumno.apellido}`,
-        album: album.nombre,
-        figuritasQueTiene: resultado.figuritasQueTiene,
-        figuritasQueTeFantan: resultado.figuritasQueTeFantanYYoTengo
-      })
+      console.log('📧 Enviando email...')
+      console.log('Token:', session.access_token.substring(0, 20) + '...')
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/enviar-email`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({
-            tipo: 'coincidencia',
-            emailDestino: resultado.alumno.familia.email_adulto,
-            nombreAdultoDestino: `${resultado.alumno.familia.nombre_adulto} ${resultado.alumno.familia.apellido_adulto}`,
-            nombreAlumnoOrigen: `${alumno.nombre} ${alumno.apellido}`,
-            gradoOrigen: alumno.grado_sala?.descripcion || 'No especificado',
-            emailAdultoOrigen: familia.email_adulto,
-            nombreFamiliaOrigen: `${familia.nombre_adulto} ${familia.apellido_adulto}`,
-            nombreAlumnoDestino: `${resultado.alumno.nombre} ${resultado.alumno.apellido}`,
-            nombreAlbum: album.nombre,
-            figuritasQueMeFaltanYVosTenes: resultado.figuritasQueTiene.sort((a, b) => {
-              const aNum = !isNaN(a)
-              const bNum = !isNaN(b)
-              if (aNum && bNum) return parseInt(a) - parseInt(b)
-              if (aNum) return -1
-              if (bNum) return 1
-              return a.localeCompare(b)
-            }),
-            figuritasQueTeFantanYYoTengo: resultado.figuritasQueTeFantanYYoTengo.sort((a, b) => {
-              const aNum = !isNaN(a)
-              const bNum = !isNaN(b)
-              if (aNum && bNum) return parseInt(a) - parseInt(b)
-              if (aNum) return -1
-              if (bNum) return 1
-              return a.localeCompare(b)
-            }),
-            idFamiliaDestino: resultado.alumno.id_familia,
-            idAlbum: albumId
-          })
-        }
-      )
-
-      console.log('Response status:', response.status)
-      console.log('Response ok:', response.ok)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Error response:', errorText)
-        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      const payload = {
+        tipo: 'coincidencia',
+        emailDestino: resultado.alumno.familia.email_adulto,
+        nombreAdultoDestino: `${resultado.alumno.familia.nombre_adulto} ${resultado.alumno.familia.apellido_adulto}`,
+        nombreAlumnoOrigen: `${alumno.nombre} ${alumno.apellido}`,
+        gradoOrigen: alumno.grado_sala?.descripcion || 'No especificado',
+        emailAdultoOrigen: familia.email_adulto,
+        nombreFamiliaOrigen: `${familia.nombre_adulto} ${familia.apellido_adulto}`,
+        nombreAlumnoDestino: `${resultado.alumno.nombre} ${resultado.alumno.apellido}`,
+        nombreAlbum: album.nombre,
+        figuritasQueMeFaltanYVosTenes: resultado.figuritasQueTiene.sort((a, b) => {
+          const aNum = !isNaN(a)
+          const bNum = !isNaN(b)
+          if (aNum && bNum) return parseInt(a) - parseInt(b)
+          if (aNum) return -1
+          if (bNum) return 1
+          return a.localeCompare(b)
+        }),
+        figuritasQueTeFantanYYoTengo: resultado.figuritasQueTeFantanYYoTengo.sort((a, b) => {
+          const aNum = !isNaN(a)
+          const bNum = !isNaN(b)
+          if (aNum && bNum) return parseInt(a) - parseInt(b)
+          if (aNum) return -1
+          if (bNum) return 1
+          return a.localeCompare(b)
+        }),
+        idFamiliaDestino: resultado.alumno.id_familia,
+        idAlbum: albumId
       }
 
-      const data = await response.json()
-      
-      if (data.error) {
-        throw new Error(data.error)
+      console.log('Payload:', payload)
+
+      // Usar supabase.functions.invoke() en lugar de fetch directo
+      // Esto maneja el token correctamente
+      const { data, error } = await supabase.functions.invoke('enviar-email', {
+        body: payload
+      })
+
+      console.log('Response data:', data)
+      console.log('Response error:', error)
+
+      if (error) {
+        throw new Error(error.message || 'Error en la Edge Function')
       }
 
       toast.success('¡Email enviado!')
