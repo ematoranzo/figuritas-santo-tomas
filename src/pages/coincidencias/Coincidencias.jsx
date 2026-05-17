@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
@@ -14,9 +14,7 @@ export default function Coincidencias() {
   const [resultados, setResultados] = useState([])
   const [cargando, setCargando] = useState(true)
 
-  useEffect(() => { cargarDatos() }, [albumId, alumnoId])
-
-  async function cargarDatos() {
+  const cargarDatos = useCallback(async () => {
     setCargando(true)
 
     try {
@@ -27,52 +25,48 @@ export default function Coincidencias() {
       setAlbum(albumData)
       setAlumno(alumnoData)
 
-      // Obtener mis faltantes
-      const { data: misFaltantes } = await supabase
-        .from('figurita_alumno')
-        .select('numero_figurita')
-        .eq('id_alumno', alumnoId)
-        .eq('id_album', albumId)
-        .eq('estado', 'faltante')
-
-      console.log('✅ Mis faltantes:', misFaltantes?.length || 0)
-
-      if (!misFaltantes || misFaltantes.length === 0) {
-        setCargando(false)
-        setResultados([])
-        return
-      }
-
-      // Buscar coincidencias (function SQL SECURITY DEFINER)
-      const { data: repetidas, error } = await supabase
-        .rpc('buscar_coincidencias', {
+      // Llamar a la función SQL bidireccional
+      const { data: coincidencias, error } = await supabase
+        .rpc('buscar_coincidencias_v2', {
           p_alumno_id: alumnoId,
           p_album_id: albumId
         })
 
-      console.log('✅ Repetidas encontradas:', repetidas?.length || 0)
+      console.log('✅ Coincidencias totales:', coincidencias?.length || 0, error)
 
-      if (error || !repetidas || repetidas.length === 0) {
-        setCargando(false)
+      if (error || !coincidencias || coincidencias.length === 0) {
         setResultados([])
         return
       }
 
-      const idsAlumnos = [...new Set(repetidas.map(r => r.id_alumno))]
+      // Agrupar por alumno y dirección
+      const porAlumno = {}
+      for (const c of coincidencias) {
+        if (!porAlumno[c.id_alumno]) {
+          porAlumno[c.id_alumno] = { elTieneYAMiFaltan: [], aElLeFaltanYYoTengo: [] }
+        }
+        if (c.direccion === 'naranja') {
+          porAlumno[c.id_alumno].elTieneYAMiFaltan.push(String(c.numero_figurita))
+        } else if (c.direccion === 'azul') {
+          porAlumno[c.id_alumno].aElLeFaltanYYoTengo.push(String(c.numero_figurita))
+        }
+      }
+
+      const idsConCoincidencias = Object.keys(porAlumno)
 
       // Obtener datos de alumnos
       const { data: alumnosData } = await supabase
         .from('alumno')
         .select('id, nombre, apellido, grado_sala(descripcion), id_familia')
-        .in('id', idsAlumnos)
+        .in('id', idsConCoincidencias)
+        .eq('activo', true)
 
       if (!alumnosData || alumnosData.length === 0) {
-        setCargando(false)
         setResultados([])
         return
       }
 
-      // Obtener datos de familias aprobadas
+      // Obtener familias aprobadas
       const idsFamilias = [...new Set(alumnosData.map(a => a.id_familia))]
       const { data: familiasData } = await supabase
         .from('familia')
@@ -81,61 +75,33 @@ export default function Coincidencias() {
         .eq('estado', 'aprobado')
 
       if (!familiasData || familiasData.length === 0) {
-        setCargando(false)
         setResultados([])
         return
       }
 
-      const alumnosConFamilia = alumnosData.map(a => ({
-        ...a,
-        familia: familiasData.find(f => f.id === a.id_familia) || null
-      }))
-
-      const alumnosAprobados = alumnosConFamilia.filter(a => a.familia !== null)
-
-      // Obtener mis repetidas
-      const { data: misRepetidas } = await supabase
-        .from('figurita_alumno')
-        .select('numero_figurita')
-        .eq('id_alumno', alumnoId)
-        .eq('id_album', albumId)
-        .eq('estado', 'repetida')
-
-      const misRepetidasNums = (misRepetidas || []).map(f => String(f.numero_figurita))
-
-      // Obtener TODAS las faltantes de otros alumnos en una sola query
-      const { data: faltantesOtros } = await supabase
-        .from('figurita_alumno')
-        .select('id_alumno, numero_figurita')
-        .eq('id_album', albumId)
-        .eq('estado', 'faltante')
-        .in('id_alumno', alumnosAprobados.map(a => a.id))
+      const familiasMap = {}
+      for (const f of familiasData) familiasMap[f.id] = f
 
       // Armar resultados finales
       const resultadosFinales = []
 
-      for (const alumnoOtro of alumnosAprobados) {
-        const figuritasQueTiene = repetidas
-          .filter(r => r.id_alumno === alumnoOtro.id)
-          .map(r => String(r.numero_figurita))
+      for (const alumnoOtro of alumnosData) {
+        const familiaOtro = familiasMap[alumnoOtro.id_familia]
+        if (!familiaOtro) continue
 
-        const susFaltantes = (faltantesOtros || [])
-          .filter(f => f.id_alumno === alumnoOtro.id)
-          .map(f => String(f.numero_figurita))
+        const c = porAlumno[alumnoOtro.id]
+        if (!c) continue
 
-        const figuritasQueTeFantanYYoTengo = susFaltantes.filter(n => misRepetidasNums.includes(n))
-
-        if (figuritasQueTiene.length > 0 || figuritasQueTeFantanYYoTengo.length > 0) {
-          resultadosFinales.push({
-            alumno: alumnoOtro,
-            figuritasQueTiene,
-            figuritasQueTeFantanYYoTengo,
-            totalCoincidencias: figuritasQueTiene.length + figuritasQueTeFantanYYoTengo.length
-          })
-        }
+        resultadosFinales.push({
+          alumno: { ...alumnoOtro, familia: familiaOtro },
+          figuritasQueTiene: c.elTieneYAMiFaltan,
+          figuritasQueTeFantanYYoTengo: c.aElLeFaltanYYoTengo,
+          totalCoincidencias: c.elTieneYAMiFaltan.length + c.aElLeFaltanYYoTengo.length
+        })
       }
 
       resultadosFinales.sort((a, b) => b.totalCoincidencias - a.totalCoincidencias)
+      console.log('✅ Resultados finales:', resultadosFinales.length)
       setResultados(resultadosFinales)
 
     } catch (err) {
@@ -144,7 +110,11 @@ export default function Coincidencias() {
     } finally {
       setCargando(false)
     }
-  }
+  }, [albumId, alumnoId])
+
+  useEffect(() => {
+    cargarDatos()
+  }, [cargarDatos])
 
   if (cargando) return <div className="loading">Buscando coincidencias...</div>
 
