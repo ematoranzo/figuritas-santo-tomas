@@ -41,7 +41,6 @@ export default function AlbumDetalle() {
     figuritasData?.forEach(f => { mapa[f.numero_figurita] = f.estado })
     setFiguritas(mapa)
 
-    // Si el álbum es alfanumérico, cargar el catálogo
     if (albumData?.tipo_numeracion === 'alfanumerica') {
       const { data: catalogoData } = await supabase
         .from('figurita_catalogo')
@@ -98,8 +97,9 @@ export default function AlbumDetalle() {
   function toggleFigurita(codigo) {
     const estadoActual = figuritas[codigo]
     const estadoOpuesto = modo === 'faltante' ? 'repetida' : 'faltante'
+    const completado = albumAlumno?.estado === 'completado'
 
-    if (yaCompletado && modo === 'faltante') {
+    if (completado && modo === 'faltante') {
       toast.error('El álbum está completado. Solo podés marcar repetidas.')
       return
     }
@@ -121,6 +121,17 @@ export default function AlbumDetalle() {
     codigos.forEach(c => {
       nuevasFiguritas[c] = modo
       nuevosCambios[c] = modo
+    })
+    setFiguritas(nuevasFiguritas)
+    setCambiosPendientes(nuevosCambios)
+  }
+
+  function quitarLista(codigos) {
+    const nuevasFiguritas = { ...figuritas }
+    const nuevosCambios = { ...cambiosPendientes }
+    codigos.forEach(c => {
+      delete nuevasFiguritas[c]
+      nuevosCambios[c] = null
     })
     setFiguritas(nuevasFiguritas)
     setCambiosPendientes(nuevosCambios)
@@ -308,6 +319,7 @@ export default function AlbumDetalle() {
         figuritas={figuritas}
         modo={modo}
         onAgregar={agregarLista}
+        onQuitar={quitarLista}
         tipoNumeracion={album.tipo_numeracion || 'numerica'}
         catalogo={catalogo}
       />
@@ -366,6 +378,8 @@ export default function AlbumDetalle() {
           albumId={albumId}
           albumNombre={album.nombre}
           cantidadTotal={totalReal}
+          tipoNumeracion={album.tipo_numeracion || 'numerica'}
+          catalogo={catalogo}
           onImportado={cargarDatos}
           onCerrar={() => setMostrarImportar(false)}
         />

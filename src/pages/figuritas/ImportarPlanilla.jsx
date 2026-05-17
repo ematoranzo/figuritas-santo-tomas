@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import * as XLSX from 'xlsx'
 import toast from 'react-hot-toast'
 
-export default function ImportarPlanilla({ alumnoId, albumId, albumNombre, cantidadTotal, onCerrar, onImportado }) {
+export default function ImportarPlanilla({ alumnoId, albumId, albumNombre, cantidadTotal, tipoNumeracion = 'numerica', catalogo = [], onCerrar, onImportado }) {
   const [procesando, setProcesando] = useState(false)
   const [resultado, setResultado] = useState(null)
   const inputRef = useRef()
@@ -44,54 +44,85 @@ export default function ImportarPlanilla({ alumnoId, albumId, albumNombre, canti
         .eq('id_album', albumId)
 
       const mapaActual = {}
-      figuritasActuales?.forEach(f => { mapaActual[f.numero_figurita] = f.estado })
+      figuritasActuales?.forEach(f => { mapaActual[String(f.numero_figurita)] = f.estado })
+
+      // Set de códigos válidos para álbumes alfanuméricos
+      const codigosValidos = tipoNumeracion === 'alfanumerica'
+        ? new Set(catalogo.map(f => f.codigo.toUpperCase()))
+        : null
 
       const correctos = []
       const errores = []
 
       for (const fila of filas) {
-        const num = parseInt(fila['Número'] || fila['Numero'] || fila['numero'])
+        const valorRaw = fila['Número'] || fila['Numero'] || fila['numero']
         const estadoRaw = (fila['Estado'] || fila['estado'] || '').toString().toLowerCase().trim()
-
-        // Validar número
-        if (isNaN(num)) {
-          errores.push(`Número inválido: "${fila['Número'] || fila['Numero'] || fila['numero']}"`)
-          continue
-        }
-
-        // Validar rango
-        if (num < 1 || num > cantidadTotal) {
-          errores.push(`Figurita ${num} fuera de rango (1-${cantidadTotal})`)
-          continue
-        }
 
         // Validar estado
         let estado = null
         if (estadoRaw === 'faltante') estado = 'faltante'
         else if (estadoRaw === 'repetida') estado = 'repetida'
         else {
-          errores.push(`Figurita ${num}: estado inválido "${estadoRaw}" (debe ser Faltante o Repetida)`)
+          errores.push(`"${valorRaw}": estado inválido "${estadoRaw}" (debe ser Faltante o Repetida)`)
           continue
         }
 
-        // Validar exclusión mutua
-        const estadoActual = mapaActual[num]
-        const estadoOpuesto = estado === 'faltante' ? 'repetida' : 'faltante'
-        if (estadoActual === estadoOpuesto) {
-          errores.push(`Figurita ${num}: ya está cargada como ${estadoOpuesto}`)
-          continue
-        }
+        if (tipoNumeracion === 'alfanumerica') {
+          // Validación alfanumérica
+          const codigo = String(valorRaw).toUpperCase().trim()
 
-        correctos.push({ num, estado })
+          if (!codigo) {
+            errores.push(`Código vacío en una fila`)
+            continue
+          }
+
+          if (codigosValidos && !codigosValidos.has(codigo)) {
+            errores.push(`"${codigo}" no existe en el catálogo del álbum`)
+            continue
+          }
+
+          // Validar exclusión mutua
+          const estadoActual = mapaActual[codigo]
+          const estadoOpuesto = estado === 'faltante' ? 'repetida' : 'faltante'
+          if (estadoActual === estadoOpuesto) {
+            errores.push(`${codigo}: ya está cargada como ${estadoOpuesto}`)
+            continue
+          }
+
+          correctos.push({ codigo, estado })
+
+        } else {
+          // Validación numérica
+          const num = parseInt(valorRaw)
+
+          if (isNaN(num)) {
+            errores.push(`Número inválido: "${valorRaw}"`)
+            continue
+          }
+          if (num < 1 || num > cantidadTotal) {
+            errores.push(`Figurita ${num} fuera de rango (1-${cantidadTotal})`)
+            continue
+          }
+
+          // Validar exclusión mutua
+          const estadoActual = mapaActual[String(num)]
+          const estadoOpuesto = estado === 'faltante' ? 'repetida' : 'faltante'
+          if (estadoActual === estadoOpuesto) {
+            errores.push(`Figurita ${num}: ya está cargada como ${estadoOpuesto}`)
+            continue
+          }
+
+          correctos.push({ codigo: num, estado })
+        }
       }
 
       // Guardar los correctos
       if (correctos.length > 0) {
-        for (const { num, estado } of correctos) {
+        for (const { codigo, estado } of correctos) {
           await supabase.from('figurita_alumno').upsert({
             id_alumno: alumnoId,
             id_album: albumId,
-            numero_figurita: num,
+            numero_figurita: codigo,
             estado,
             cantidad: 1,
             fecha_actualizacion: new Date().toISOString()
@@ -107,10 +138,13 @@ export default function ImportarPlanilla({ alumnoId, albumId, albumNombre, canti
 
     } catch (err) {
       toast.error('Error al procesar el archivo')
+      console.error(err)
     } finally {
       setProcesando(false)
     }
   }
+
+  const esAlfanumerico = tipoNumeracion === 'alfanumerica'
 
   return (
     <div className="modal-overlay" onClick={onCerrar}>
@@ -129,9 +163,19 @@ export default function ImportarPlanilla({ alumnoId, albumId, albumNombre, canti
                   <tr><th>Número</th><th>Estado</th></tr>
                 </thead>
                 <tbody>
-                  <tr><td>5</td><td>Faltante</td></tr>
-                  <tr><td>18</td><td>Repetida</td></tr>
-                  <tr><td>42</td><td>Faltante</td></tr>
+                  {esAlfanumerico ? (
+                    <>
+                      <tr><td>ARG1</td><td>Faltante</td></tr>
+                      <tr><td>BRA5</td><td>Repetida</td></tr>
+                      <tr><td>FWC3</td><td>Faltante</td></tr>
+                    </>
+                  ) : (
+                    <>
+                      <tr><td>5</td><td>Faltante</td></tr>
+                      <tr><td>18</td><td>Repetida</td></tr>
+                      <tr><td>42</td><td>Faltante</td></tr>
+                    </>
+                  )}
                 </tbody>
               </table>
             </div>

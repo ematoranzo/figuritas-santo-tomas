@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import toast from 'react-hot-toast'
 
-export default function CargaManual({ total, figuritas, modo, onAgregar, tipoNumeracion = 'numerica', catalogo = [] }) {
+export default function CargaManual({ total, figuritas, modo, onAgregar, onQuitar, tipoNumeracion = 'numerica', catalogo = [] }) {
   const [texto, setTexto] = useState('')
 
-  // Set de códigos válidos para álbumes alfanuméricos (se construye una sola vez)
-  const codigosValidos = tipoNumeracion === 'alfanumerica'
-    ? new Set(catalogo.map(f => f.codigo.toUpperCase()))
-    : null
+  const codigosValidos = useMemo(() => {
+    if (tipoNumeracion === 'alfanumerica') {
+      return new Set(catalogo.map(f => f.codigo.toUpperCase()))
+    }
+    return null
+  }, [catalogo, tipoNumeracion])
 
   function procesar() {
     const raw = texto.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean)
@@ -17,28 +19,44 @@ export default function CargaManual({ total, figuritas, modo, onAgregar, tipoNum
       return
     }
 
-    const validos = []
+    if (tipoNumeracion === 'alfanumerica' && (!codigosValidos || codigosValidos.size === 0)) {
+      toast.error('El catálogo aún está cargando, esperá un momento')
+      return
+    }
+
+    const paraMarcar = []   // códigos a marcar en el modo actual
+    const paraQuitar = []   // códigos a desmarcar
     const errores = []
 
     for (const entrada of raw) {
       if (tipoNumeracion === 'alfanumerica') {
-        // Validar contra catálogo (case-insensitive)
         const codigo = entrada.toUpperCase()
+
         if (!codigosValidos.has(codigo)) {
           errores.push(`"${entrada}" no existe en el catálogo`)
           continue
         }
+
         const estadoActual = figuritas[codigo]
         const estadoOpuesto = modo === 'faltante' ? 'repetida' : 'faltante'
+
         if (estadoActual === estadoOpuesto) {
+          // Está en el estado contrario → error
           errores.push(`${codigo} ya está como ${estadoOpuesto}`)
           continue
         }
-        if (!validos.includes(codigo)) validos.push(codigo)
+
+        if (estadoActual === modo) {
+          // Ya está en este modo → desmarcar
+          if (!paraQuitar.includes(codigo)) paraQuitar.push(codigo)
+        } else {
+          // Sin marcar → marcar
+          if (!paraMarcar.includes(codigo)) paraMarcar.push(codigo)
+        }
 
       } else {
-        // Validación numérica original
         const n = parseInt(entrada)
+
         if (isNaN(n)) {
           errores.push(`"${entrada}" no es un número válido`)
           continue
@@ -47,24 +65,36 @@ export default function CargaManual({ total, figuritas, modo, onAgregar, tipoNum
           errores.push(`${n} fuera de rango (1–${total})`)
           continue
         }
+
         const estadoActual = figuritas[n]
         const estadoOpuesto = modo === 'faltante' ? 'repetida' : 'faltante'
+
         if (estadoActual === estadoOpuesto) {
           errores.push(`${n} ya está como ${estadoOpuesto}`)
           continue
         }
-        if (!validos.includes(n)) validos.push(n)
+
+        if (estadoActual === modo) {
+          if (!paraQuitar.includes(n)) paraQuitar.push(n)
+        } else {
+          if (!paraMarcar.includes(n)) paraMarcar.push(n)
+        }
       }
     }
 
     if (errores.length > 0) {
-      toast.error(`Errores: ${errores.slice(0, 3).join(', ')}${errores.length > 3 ? ` (+${errores.length - 3} más)` : ''}`)
+      toast.error(`${errores.slice(0, 3).join(', ')}${errores.length > 3 ? ` (+${errores.length - 3} más)` : ''}`)
     }
-    if (validos.length > 0) {
-      onAgregar(validos)
-      setTexto('')
-      toast.success(`${validos.length} figuritas agregadas`)
+    if (paraMarcar.length > 0) {
+      onAgregar(paraMarcar)
+      toast.success(`${paraMarcar.length} figurita${paraMarcar.length !== 1 ? 's' : ''} marcada${paraMarcar.length !== 1 ? 's' : ''} como ${modo}`)
     }
+    if (paraQuitar.length > 0) {
+      onQuitar(paraQuitar)
+      toast.success(`${paraQuitar.length} figurita${paraQuitar.length !== 1 ? 's' : ''} desmarcada${paraQuitar.length !== 1 ? 's' : ''}`)
+    }
+
+    setTexto('')
   }
 
   const placeholder = tipoNumeracion === 'alfanumerica'
